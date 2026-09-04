@@ -19,7 +19,6 @@ exports.handler = async (event, context) => {
     const { data, error } = await supabase
       .from('customers')
       .select('*')
-      .order('created_at', { ascending: false });
 
     if (error) {
       return {
