@@ -1,8 +1,8 @@
 const ADMIN_PASSWORD = "jimmy0309!";
-const STORAGE_KEY = "gold-savings-customers-v1";
 let activeCustomerId = null;
 let passwordCustomerId = null;
 let language = localStorage.getItem("hangthong-language") || "ko";
+let cachedCustomers = [];
 
 const translations = {
   ko: { adminLogin:"관리자", loginTitle:"나의 금 적립금을<br />확인하세요.", loginDescription:"전화번호와 관리자에게 받은 비밀번호를 입력해 주세요.", phone:"전화번호", password:"비밀번호", viewSavings:"내 적립금 보기", forgotPassword:"비밀번호를 잊으셨다면 매장 관리자에게 문의해 주세요.", logout:"로그아웃", mySavings:"MY SAVINGS", customerTitle:"님의<br />금 적립 현황", depositAccount:"입금 계좌", bankName:"우리은행", accountHolder:"예금주 BANSOMBOON", totalSavings:"총 적립금", depositCount:"입금 횟수", recentDeposit:"최근 입금일", depositHistory:"입금 내역", adminPage:"관리자 페이지", adminDescription:"관리자 비밀번호를 입력해 주세요.", adminPassword:"관리자 비밀번호", login:"로그인", customerManagement:"CUSTOMER MANAGEMENT", manageSavings:"고객 적립금 관리", addCustomer:"+ 고객 등록", recordDeposit:"+ 입금 기록", editCustomer:"고객 정보 수정", addCustomerPlain:"고객 등록", serial:"시리얼번호", customerName:"고객 이름", initialPassword:"초기 비밀번호", registerCustomer:"고객 등록하기", cancel:"취소", chooseCustomer:"수정할 고객 선택", customerPassword:"고객 비밀번호", saveCustomer:"고객 정보 저장", recordDepositPlain:"입금 기록", customer:"고객", depositAmount:"입금 금액", depositDate:"입금 날짜", memo:"메모", optional:"(선택)", saveDeposit:"입금 내역 저장", registeredCustomers:"등록 고객", adminCheck:"관리자 확인", confirmAdmin:"고객 비밀번호를 확인하려면 관리자 비밀번호를 다시 입력해 주세요.", confirmPassword:"비밀번호 확인", serialExample:"예: 1001 또는 GOLD-001", nameExample:"홍길동", minFour:"4자 이상", amountExample:"예: 100000", cashDeposit:"예: 현금 입금", noDeposit:"아직 입금 내역이 없습니다.", lastDeposit:"최근 입금일", entries:"건", times:"회", people:"명", deposit:"입금", noHistory:"등록된 입금 내역이 없습니다.", noCustomers:"등록된 고객이 없습니다.", choose:"고객을 선택하세요", chooseEdit:"수정할 고객을 선택하세요", unregistered:"미등록", passwordCheck:"비밀번호 확인", invalidLogin:"전화번호 또는 비밀번호를 확인해 주세요.", invalidAdmin:"관리자 비밀번호가 올바르지 않습니다.", duplicatePhone:"이미 등록된 전화번호입니다.", duplicateSerial:"이미 사용 중인 시리얼번호입니다.", customerPasswordTitle:"님 비밀번호 확인", downloadPdf:"송금 내역 PDF 다운로드" },
@@ -12,12 +12,54 @@ const fallbackTranslations = { ko:{address:"주소",addressExample:"예: 방콕 
 const t = key => translations[language][key] || fallbackTranslations[language][key] || key;
 const money = value => new Intl.NumberFormat(language === "th" ? "th-TH" : "ko-KR").format(value) + (language === "th" ? " บาท" : "원");
 const formatDate = value => new Intl.DateTimeFormat(language === "th" ? "th-TH" : "ko-KR", { year:"numeric", month:"long", day:"numeric" }).format(new Date(`${value}T00:00:00`));
-function setLanguage(next) { language=next; localStorage.setItem("hangthong-language", language); document.documentElement.lang=language; document.querySelectorAll("[data-i18n]").forEach(el=>el.childNodes.forEach(node=>{ if(node.nodeType===3 && node.textContent.trim()) node.textContent=t(el.dataset.i18n); })); document.querySelectorAll("[data-i18n-html]").forEach(el=>el.innerHTML=t(el.dataset.i18nHtml)); document.querySelectorAll("[data-i18n-placeholder]").forEach(el=>el.placeholder=t(el.dataset.i18nPlaceholder)); document.querySelectorAll(".language-button").forEach(button=>button.classList.toggle("active", button.dataset.language===language)); if(activeCustomerId) renderCustomer(); if(!document.getElementById("admin-dashboard").classList.contains("hidden")) renderAdmin(); }
 
 const phone = value => value.replace(/[^0-9]/g, "");
 const today = () => new Date().toISOString().slice(0, 10);
-const getCustomers = () => JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-const saveCustomers = customers => localStorage.setItem(STORAGE_KEY, JSON.stringify(customers));
+
+// --- Netlify & Supabase API 통신 함수 ---
+async function fetchCustomersFromDB() {
+  try {
+    const res = await fetch('/.netlify/functions/get-customers');
+    if (!res.ok) throw new Error('데이터 불러오기 실패');
+    cachedCustomers = await res.json();
+    return cachedCustomers;
+  } catch (err) {
+    console.error('API Error:', err);
+    return cachedCustomers;
+  }
+}
+
+async function saveCustomerToDB(customerData) {
+  const res = await fetch('/.netlify/functions/save-customer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(customerData)
+  });
+  if (!res.ok) throw new Error('고객 저장 실패');
+  return await res.json();
+}
+
+async function saveDepositToDB(depositData) {
+  const res = await fetch('/.netlify/functions/save-deposit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(depositData)
+  });
+  if (!res.ok) throw new Error('입금 내역 저장 실패');
+  return await res.json();
+}
+
+function setLanguage(next) { 
+  language=next; 
+  localStorage.setItem("hangthong-language", language); 
+  document.documentElement.lang=language; 
+  document.querySelectorAll("[data-i18n]").forEach(el=>el.childNodes.forEach(node=>{ if(node.nodeType===3 && node.textContent.trim()) node.textContent=t(el.dataset.i18n); })); 
+  document.querySelectorAll("[data-i18n-html]").forEach(el=>el.innerHTML=t(el.dataset.i18nHtml)); 
+  document.querySelectorAll("[data-i18n-placeholder]").forEach(el=>el.placeholder=t(el.dataset.i18nPlaceholder)); 
+  document.querySelectorAll(".language-button").forEach(button=>button.classList.toggle("active", button.dataset.language===language)); 
+  if(activeCustomerId) renderCustomer(); 
+  if(!document.getElementById("admin-dashboard").classList.contains("hidden")) renderAdmin(); 
+}
 
 function reportCanvas(customer, rows, page, pageCount) {
   const canvas=document.createElement("canvas"), ctx=canvas.getContext("2d"), width=1240, height=1754, pad=88; canvas.width=width; canvas.height=height;
@@ -33,42 +75,163 @@ function downloadPdfFromJpegs(jpegs) {
   const encoder=new TextEncoder(), parts=[], offsets=[], addText=text=>parts.push(encoder.encode(text)), addBytes=bytes=>parts.push(bytes), length=()=>parts.reduce((sum,p)=>sum+p.length,0), addObject=(id,content)=>{ offsets[id]=length(); addText(`${id} 0 obj\n${content}\nendobj\n`); }, addImage=(id,jpeg)=>{ offsets[id]=length(); addText(`${id} 0 obj\n<< /Type /XObject /Subtype /Image /Width 1240 /Height 1754 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`); addBytes(jpeg); addText("\nendstream\nendobj\n"); };
   addText("%PDF-1.4\n%"); addBytes(new Uint8Array([255,255,255,255])); addText("\n"); const count=jpegs.length, firstPage=3, firstImage=firstPage+count*2; addObject(1,"<< /Type /Catalog /Pages 2 0 R >>"); addObject(2,`<< /Type /Pages /Kids [${Array.from({length:count},(_,i)=>`${firstPage+i*2} 0 R`).join(" ")}] /Count ${count} >>`); jpegs.forEach((jpeg,i)=>{const page=firstPage+i*2,image=firstImage+i,content=page+1,stream=`q\n595 0 0 842 0 0 cm\n/Im${i} Do\nQ\n`; addObject(page,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /Im${i} ${image} 0 R >> >> /Contents ${content} 0 R >>`); addObject(content,`<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}endstream`); addImage(image,jpeg); }); const xref=length(); addText(`xref\n0 ${offsets.length}\n0000000000 65535 f \n`); for(let i=1;i<offsets.length;i++) addText(`${String(offsets[i]).padStart(10,"0")} 00000 n \n`); addText(`trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`); const url=URL.createObjectURL(new Blob(parts,{type:"application/pdf"})), link=document.createElement("a"); link.href=url; link.download="Hangthong-Somboon-transfer-history.pdf"; link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-async function downloadCustomerPdf() { const customer=getCustomers().find(c=>c.id===activeCustomerId); if(!customer)return; await document.fonts.ready; const deposits=[...(customer.deposits||[])].sort((a,b)=>b.date.localeCompare(a.date)); const groups=deposits.length ? Array.from({length:Math.ceil(deposits.length/18)},(_,i)=>deposits.slice(i*18,i*18+18)) : [[]]; downloadPdfFromJpegs(groups.map((group,i)=>bytesFromDataUrl(reportCanvas(customer,group,i+1,groups.length).toDataURL("image/jpeg",.94)))); }
+async function downloadCustomerPdf() { const customer=cachedCustomers.find(c=>c.id===activeCustomerId); if(!customer)return; await document.fonts.ready; const deposits=[...(customer.deposits||[])].sort((a,b)=>b.date.localeCompare(a.date)); const groups=deposits.length ? Array.from({length:Math.ceil(deposits.length/18)},(_,i)=>deposits.slice(i*18,i*18+18)) : [[]]; downloadPdfFromJpegs(groups.map((group,i)=>bytesFromDataUrl(reportCanvas(customer,group,i+1,groups.length).toDataURL("image/jpeg",.94)))); }
 
-function seed() {
-  if (getCustomers().length) return;
-  saveCustomers([{ id: crypto.randomUUID(), serial:"1001", name:"김금손", phone:"01012345678", address:"서울특별시", password:"1234", deposits:[{ amount:150000, date:"2026-08-12", note:"현금 입금" },{ amount:200000, date:"2026-08-28", note:"계좌 이체" }] }]);
-}
 function show(id) { document.querySelectorAll(".screen").forEach(x => x.classList.add("hidden")); document.getElementById(id).classList.remove("hidden"); }
 function totals(customer) { const deposits = customer.deposits || []; return { total:deposits.reduce((sum,d) => sum + Number(d.amount),0), count:deposits.length, recent:[...deposits].sort((a,b)=>b.date.localeCompare(a.date))[0] }; }
 function depositRow(d) { return `<div class="deposit-row"><div><p>${formatDate(d.date)}</p><small>${d.note || t("deposit")}</small></div><strong>+${money(d.amount)}</strong></div>`; }
-function renderCustomer() {
-  const customer = getCustomers().find(x => x.id === activeCustomerId); if (!customer) return show("customer-login");
+
+async function renderCustomer() {
+  await fetchCustomersFromDB();
+  const customer = cachedCustomers.find(x => x.id === activeCustomerId); if (!customer) return show("customer-login");
   const {total,count,recent} = totals(customer); document.getElementById("customer-name").textContent = customer.name; document.getElementById("customer-total").textContent = money(total); document.getElementById("customer-count").textContent = `${count}${t("times")}`; document.getElementById("customer-recent").textContent = recent ? formatDate(recent.date) : "-"; document.getElementById("customer-last-deposit").textContent = recent ? `${t("lastDeposit")} ${formatDate(recent.date)}` : t("noDeposit"); document.getElementById("deposit-count").textContent = `${count}${t("entries")}`;
   const list = document.getElementById("customer-deposit-list"); list.innerHTML = count ? [...customer.deposits].sort((a,b)=>b.date.localeCompare(a.date)).map(depositRow).join("") : `<p class="empty">${t("noHistory")}</p>`; show("customer-dashboard");
 }
-function renderAdmin() {
-  const customers = getCustomers(); const bySerial = [...customers].sort((a,b) => { if (!a.serial) return 1; if (!b.serial) return -1; return String(a.serial).localeCompare(String(b.serial), language, { numeric:true, sensitivity:"base" }); }); const customerOptions = bySerial.map(x=>`<option value="${x.id}">[${x.serial || t("unregistered")}] ${x.name} · ${x.phone}</option>`).join(""); const select = document.getElementById("deposit-customer"); select.innerHTML = `<option value="">${t("choose")}</option>` + customerOptions; document.getElementById("edit-customer-select").innerHTML = `<option value="">${t("chooseEdit")}</option>` + customerOptions; document.getElementById("admin-customer-count").textContent = `${customers.length}${t("people")}`;
+
+async function renderAdmin() {
+  const customers = await fetchCustomersFromDB();
+  const bySerial = [...customers].sort((a,b) => { if (!a.serial) return 1; if (!b.serial) return -1; return String(a.serial).localeCompare(String(b.serial), language, { numeric:true, sensitivity:"base" }); }); const customerOptions = bySerial.map(x=>`<option value="${x.id}">[${x.serial || t("unregistered")}] ${x.name} · ${x.phone}</option>`).join(""); const select = document.getElementById("deposit-customer"); select.innerHTML = `<option value="">${t("choose")}</option>` + customerOptions; document.getElementById("edit-customer-select").innerHTML = `<option value="">${t("chooseEdit")}</option>` + customerOptions; document.getElementById("admin-customer-count").textContent = `${customers.length}${t("people")}`;
   document.getElementById("admin-customer-list").innerHTML = customers.length ? bySerial.map(c=>{ const total=totals(c); return `<div class="customer-row"><div><p>${c.name}</p><small>${t("serial")} ${c.serial || t("unregistered")} · ${c.phone} · ${total.count}${t("times")} ${t("deposit")}</small><div class="customer-buttons"><button class="password-check" data-customer-id="${c.id}">${t("passwordCheck")}</button></div></div><strong>${money(total.total)}</strong></div>`; }).join("") : `<p class="empty">${t("noCustomers")}</p>`; document.querySelectorAll(".password-check").forEach(button => button.addEventListener("click", () => openPasswordModal(button.dataset.customerId))); show("admin-dashboard");
 }
-function fillEditCustomer(customerId) { const customer=getCustomers().find(c=>c.id===customerId); document.getElementById("edit-customer-id").value=customer ? customer.id : ""; document.getElementById("edit-serial").value=customer ? customer.serial || "" : ""; document.getElementById("edit-name").value=customer ? customer.name : ""; document.getElementById("edit-phone").value=customer ? customer.phone : ""; document.getElementById("edit-address").value=customer ? customer.address || "" : ""; document.getElementById("edit-password").value=customer ? customer.password : ""; }
+
+function fillEditCustomer(customerId) { const customer=cachedCustomers.find(c=>c.id===customerId); document.getElementById("edit-customer-id").value=customer ? customer.id : ""; document.getElementById("edit-serial").value=customer ? customer.serial || "" : ""; document.getElementById("edit-name").value=customer ? customer.name : ""; document.getElementById("edit-phone").value=customer ? customer.phone : ""; document.getElementById("edit-address").value=customer ? customer.address || "" : ""; document.getElementById("edit-password").value=customer ? customer.password : ""; }
 function openEditCustomer() { document.getElementById("new-customer-form").classList.add("hidden"); document.getElementById("edit-customer-select").value=""; fillEditCustomer(""); document.getElementById("edit-customer-error").textContent=""; document.getElementById("edit-customer-form").classList.remove("hidden"); document.getElementById("edit-customer-form").scrollIntoView({behavior:"smooth", block:"start"}); }
-function openPasswordModal(customerId) { passwordCustomerId=customerId; const customer=getCustomers().find(c=>c.id===customerId); document.getElementById("password-modal-title").textContent=language === "th" ? `${t("passwordCheck")} ${customer.name}` : `${customer.name}${t("customerPasswordTitle")}`; document.getElementById("password-confirm-form").classList.remove("hidden"); document.getElementById("password-confirm-form").reset(); document.getElementById("password-confirm-error").textContent=""; document.getElementById("revealed-password").classList.add("hidden"); document.getElementById("password-modal").classList.remove("hidden"); setTimeout(()=>document.getElementById("password-confirm-input").focus(),0); }
+function openPasswordModal(customerId) { passwordCustomerId=customerId; const customer=cachedCustomers.find(c=>c.id===customerId); document.getElementById("password-modal-title").textContent=language === "th" ? `${t("passwordCheck")} ${customer.name}` : `${customer.name}${t("customerPasswordTitle")}`; document.getElementById("password-confirm-form").classList.remove("hidden"); document.getElementById("password-confirm-form").reset(); document.getElementById("password-confirm-error").textContent=""; document.getElementById("revealed-password").classList.add("hidden"); document.getElementById("password-modal").classList.remove("hidden"); setTimeout(()=>document.getElementById("password-confirm-input").focus(),0); }
 function closePasswordModal() { passwordCustomerId=null; document.getElementById("password-modal").classList.add("hidden"); }
+
 document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => show(button.dataset.view)));
 document.querySelectorAll("[data-language]").forEach(button => button.addEventListener("click", () => setLanguage(button.dataset.language)));
-document.getElementById("customer-login-form").addEventListener("submit", e => { e.preventDefault(); const found = getCustomers().find(c => c.phone === phone(document.getElementById("customer-phone").value) && c.password === document.getElementById("customer-password").value); const error=document.getElementById("customer-login-error"); if (!found) { error.textContent=t("invalidLogin"); return; } error.textContent=""; activeCustomerId=found.id; renderCustomer(); });
-document.getElementById("admin-login-form").addEventListener("submit", e => { e.preventDefault(); const error=document.getElementById("admin-login-error"); if(document.getElementById("admin-password").value !== ADMIN_PASSWORD) { error.textContent=t("invalidAdmin"); return; } error.textContent=""; renderAdmin(); });
-document.getElementById("customer-logout").onclick = () => { activeCustomerId=null; document.getElementById("customer-login-form").reset(); show("customer-login"); }; document.getElementById("admin-logout").onclick = () => { document.getElementById("admin-login-form").reset(); show("customer-login"); };
+
+document.getElementById("customer-login-form").addEventListener("submit", async e => { 
+  e.preventDefault(); 
+  const customers = await fetchCustomersFromDB();
+  const found = customers.find(c => c.phone === phone(document.getElementById("customer-phone").value) && c.password === document.getElementById("customer-password").value); 
+  const error=document.getElementById("customer-login-error"); 
+  if (!found) { error.textContent=t("invalidLogin"); return; } 
+  error.textContent=""; 
+  activeCustomerId=found.id; 
+  renderCustomer(); 
+});
+
+document.getElementById("admin-login-form").addEventListener("submit", e => { 
+  e.preventDefault(); 
+  const error=document.getElementById("admin-login-error"); 
+  if(document.getElementById("admin-password").value !== ADMIN_PASSWORD) { error.textContent=t("invalidAdmin"); return; } 
+  error.textContent=""; 
+  renderAdmin(); 
+});
+
+document.getElementById("customer-logout").onclick = () => { activeCustomerId=null; document.getElementById("customer-login-form").reset(); show("customer-login"); }; 
+document.getElementById("admin-logout").onclick = () => { document.getElementById("admin-login-form").reset(); show("customer-login"); };
 document.getElementById("download-pdf").onclick = downloadCustomerPdf;
 document.querySelectorAll("[data-panel]").forEach(button => button.addEventListener("click", () => document.getElementById(`new-${button.dataset.panel}`).classList.toggle("hidden")));
-document.getElementById("new-customer-form").addEventListener("submit", e => { e.preventDefault(); const customers=getCustomers(), error=document.getElementById("new-customer-error"), newPhone=phone(document.getElementById("new-phone").value), serial=document.getElementById("new-serial").value.trim(); if(customers.some(c=>c.phone===newPhone)){error.textContent=t("duplicatePhone");return;} if(customers.some(c=>c.serial && c.serial.toLowerCase()===serial.toLowerCase())){error.textContent=t("duplicateSerial");return;} customers.push({id:crypto.randomUUID(),serial,name:document.getElementById("new-name").value.trim(),phone:newPhone,address:document.getElementById("new-address").value.trim(),password:document.getElementById("new-password").value,deposits:[]});saveCustomers(customers);e.target.reset();error.textContent="";renderAdmin(); });
+
+// 신규 고객 등록 (Supabase DB 저장)
+document.getElementById("new-customer-form").addEventListener("submit", async e => { 
+  e.preventDefault(); 
+  const customers = await fetchCustomersFromDB();
+  const error = document.getElementById("new-customer-error");
+  const newPhone = phone(document.getElementById("new-phone").value);
+  const serial = document.getElementById("new-serial").value.trim();
+
+  if(customers.some(c=>c.phone===newPhone)){ error.textContent=t("duplicatePhone"); return; } 
+  if(customers.some(c=>c.serial && c.serial.toLowerCase()===serial.toLowerCase())){ error.textContent=t("duplicateSerial"); return; } 
+
+  const newCustomerData = {
+    serial,
+    name: document.getElementById("new-name").value.trim(),
+    phone: newPhone,
+    address: document.getElementById("new-address").value.trim(),
+    password: document.getElementById("new-password").value
+  };
+
+  try {
+    await saveCustomerToDB(newCustomerData);
+    e.target.reset();
+    error.textContent = "";
+    document.getElementById("new-customer-form").classList.add("hidden");
+    await renderAdmin();
+  } catch(err) {
+    console.error(err);
+    error.textContent = "저장 중 오류가 발생했습니다.";
+  }
+});
+
 document.getElementById("cancel-edit-customer").onclick = () => document.getElementById("edit-customer-form").classList.add("hidden");
 document.getElementById("open-edit-customer").onclick = openEditCustomer;
 document.getElementById("edit-customer-select").addEventListener("change", e => { fillEditCustomer(e.target.value); document.getElementById("edit-customer-error").textContent=""; });
-document.getElementById("edit-customer-form").addEventListener("submit", e => { e.preventDefault(); const customers=getCustomers(), error=document.getElementById("edit-customer-error"), id=document.getElementById("edit-customer-id").value, customer=customers.find(c=>c.id===id), serial=document.getElementById("edit-serial").value.trim(), updatedPhone=phone(document.getElementById("edit-phone").value); if(!customer) return; if(customers.some(c=>c.id!==id && c.phone===updatedPhone)){error.textContent=t("duplicatePhone");return;} if(customers.some(c=>c.id!==id && c.serial && c.serial.toLowerCase()===serial.toLowerCase())){error.textContent=t("duplicateSerial");return;} customer.serial=serial; customer.name=document.getElementById("edit-name").value.trim(); customer.phone=updatedPhone; customer.address=document.getElementById("edit-address").value.trim(); customer.password=document.getElementById("edit-password").value; saveCustomers(customers); document.getElementById("edit-customer-form").classList.add("hidden"); error.textContent=""; renderAdmin(); });
-document.getElementById("new-deposit-form").addEventListener("submit", e => { e.preventDefault(); const customers=getCustomers(), customer=customers.find(c=>c.id===document.getElementById("deposit-customer").value); if(!customer)return; customer.deposits.push({amount:Number(document.getElementById("deposit-amount").value),date:document.getElementById("deposit-date").value,note:document.getElementById("deposit-note").value.trim()});saveCustomers(customers);e.target.reset();document.getElementById("deposit-date").value=today();renderAdmin(); });
-document.getElementById("close-password-modal").onclick=closePasswordModal;
+
+// 고객 정보 수정 (Supabase DB 저장)
+document.getElementById("edit-customer-form").addEventListener("submit", async e => { 
+  e.preventDefault(); 
+  const customers = await fetchCustomersFromDB();
+  const error = document.getElementById("edit-customer-error");
+  const id = document.getElementById("edit-customer-id").value;
+  const customer = customers.find(c=>c.id===id);
+  const serial = document.getElementById("edit-serial").value.trim();
+  const updatedPhone = phone(document.getElementById("edit-phone").value);
+
+  if(!customer) return; 
+  if(customers.some(c=>c.id!==id && c.phone===updatedPhone)){ error.textContent=t("duplicatePhone"); return; } 
+  if(customers.some(c=>c.id!==id && c.serial && c.serial.toLowerCase()===serial.toLowerCase())){ error.textContent=t("duplicateSerial"); return; } 
+
+  const updatedCustomerData = {
+    id,
+    serial,
+    name: document.getElementById("edit-name").value.trim(),
+    phone: updatedPhone,
+    address: document.getElementById("edit-address").value.trim(),
+    password: document.getElementById("edit-password").value
+  };
+
+  try {
+    await saveCustomerToDB(updatedCustomerData);
+    document.getElementById("edit-customer-form").classList.add("hidden");
+    error.textContent = "";
+    await renderAdmin();
+  } catch(err) {
+    console.error(err);
+    error.textContent = "수정 중 오류가 발생했습니다.";
+  }
+});
+
+// 신규 입금 기록 (Supabase DB 저장)
+document.getElementById("new-deposit-form").addEventListener("submit", async e => { 
+  e.preventDefault(); 
+  const customerId = document.getElementById("deposit-customer").value;
+  if(!customerId) return;
+
+  const depositData = {
+    customer_id: customerId,
+    amount: Number(document.getElementById("deposit-amount").value),
+    date: document.getElementById("deposit-date").value,
+    note: document.getElementById("deposit-note").value.trim()
+  };
+
+  try {
+    await saveDepositToDB(depositData);
+    e.target.reset();
+    document.getElementById("deposit-date").value = today();
+    document.getElementById("new-deposit-form").classList.add("hidden");
+    await renderAdmin();
+  } catch(err) {
+    console.error(err);
+    alert('입금 내역 저장에 실패했습니다.');
+  }
+});
+
+document.getElementById("close-password-modal").onclick = closePasswordModal;
 document.getElementById("password-modal").addEventListener("click", e => { if(e.target.id === "password-modal") closePasswordModal(); });
-document.getElementById("password-confirm-form").addEventListener("submit", e => { e.preventDefault(); const error=document.getElementById("password-confirm-error"); if(document.getElementById("password-confirm-input").value !== ADMIN_PASSWORD) { error.textContent=t("invalidAdmin"); return; } const customer=getCustomers().find(c=>c.id===passwordCustomerId); if(!customer) return closePasswordModal(); document.getElementById("password-confirm-form").classList.add("hidden"); document.getElementById("revealed-password-value").textContent=customer.password; document.getElementById("revealed-password").classList.remove("hidden"); });
-seed(); document.getElementById("deposit-date").value=today(); setLanguage(language);
+document.getElementById("password-confirm-form").addEventListener("submit", e => { 
+  e.preventDefault(); 
+  const error = document.getElementById("password-confirm-error"); 
+  if(document.getElementById("password-confirm-input").value !== ADMIN_PASSWORD) { error.textContent=t("invalidAdmin"); return; } 
+  const customer = cachedCustomers.find(c=>c.id===passwordCustomerId); 
+  if(!customer) return closePasswordModal(); 
+  document.getElementById("password-confirm-form").classList.add("hidden"); 
+  document.getElementById("revealed-password-value").textContent = customer.password; 
+  document.getElementById("revealed-password").classList.remove("hidden"); 
+});
+
+document.getElementById("deposit-date").value = today();
+setLanguage(language);
