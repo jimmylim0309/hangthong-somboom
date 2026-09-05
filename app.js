@@ -362,7 +362,6 @@ async function handleDepositSubmit(e) {
 
 // 이벤트 위임 처리: 클릭 및 서브밋 방지
 document.addEventListener("click", function(e) {
-  // 클릭된 요소가 입금 저장 관련 버튼이거나 폼 안의 submit 버튼인 경우
   const target = e.target;
   if (target.matches("#save-deposit-btn, #new-deposit-form button[type='submit'], #deposit-form button[type='submit']") || target.closest("#save-deposit-btn")) {
     e.preventDefault();
