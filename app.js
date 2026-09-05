@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 2.4.3
- Fix : Add Customer Deposit History PDF Download Logic
+ Version 2.4.4
+ Fix : Native Browser Print/PDF Download Implementation
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
@@ -210,7 +210,7 @@ async function renderCustomer() {
   show("customer-dashboard");
 }
 
-/* PDF 다운로드 로직 */
+/* 1번 절차: 브라우저 인쇄창을 활용한 PDF 다운로드 로직 */
 function downloadDepositPDF() {
   const customer = cachedCustomers.find(c =>
     getCustomerId(c) === String(activeCustomerId)
@@ -221,11 +221,6 @@ function downloadDepositPDF() {
     return;
   }
 
-  if (typeof html2pdf === "undefined") {
-    alert("PDF 변환 라이브러리(html2pdf)가 로드되지 않았습니다. index.html을 확인하세요.");
-    return;
-  }
-
   const info = totals(customer);
   const sortedDeposits = [...(customer.deposits || [])].sort((a, b) => {
     const dateA = a.created_at || a.date || "";
@@ -233,14 +228,8 @@ function downloadDepositPDF() {
     return dateB.localeCompare(dateA);
   });
 
-  // PDF 출력용 임시 HTML 템플릿 생성
-  const pdfContainer = document.createElement("div");
-  pdfContainer.style.padding = "20px";
-  pdfContainer.style.fontFamily = "sans-serif";
-  pdfContainer.style.color = "#333";
-
   let rowsHtml = sortedDeposits.map((d, index) => `
-    <tr style="border-bottom: 1px solid #ddd; text-align: center;">
+    <tr style="border-bottom: 1px solid #eee; text-align: center;">
       <td style="padding: 10px;">${index + 1}</td>
       <td style="padding: 10px;">${formatDate(d.created_at || d.date)}</td>
       <td style="padding: 10px;">${d.memo || d.note || '-'}</td>
@@ -252,47 +241,72 @@ function downloadDepositPDF() {
     rowsHtml = `<tr><td colspan="4" style="padding: 20px; text-align: center; color: #888;">입금 내역이 없습니다.</td></tr>`;
   }
 
-  pdfContainer.innerHTML = `
-    <div style="text-align: center; margin-bottom: 30px;">
-      <h2 style="margin: 0; color: #d4af37;">HANGTHONG SOMBOON GOLD SAVINGS</h2>
-      <h3 style="margin: 5px 0 0 0;">입금/송금 내역서</h3>
-    </div>
-    
-    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-      <p style="margin: 3px 0;"><strong>고객명:</strong> ${customer.name}</p>
-      <p style="margin: 3px 0;"><strong>고객번호(Serial):</strong> ${customer.serial || '-'}</p>
-      <p style="margin: 3px 0;"><strong>전화번호:</strong> ${customer.phone || '-'}</p>
-      <p style="margin: 3px 0;"><strong>총 적립금액:</strong> <span style="color:#d4af37; font-weight:bold;">${money(info.total)}</span> (총 ${info.count}회)</p>
-    </div>
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert("팝업 차단이 설정되어 있습니다. 팝업 허용 후 다시 시도해주세요.");
+    return;
+  }
 
-    <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px;">
-      <thead>
-        <tr style="background: #333; color: #fff; text-align: center;">
-          <th style="padding: 10px;">NO</th>
-          <th style="padding: 10px;">일자</th>
-          <th style="padding: 10px;">적요/메모</th>
-          <th style="padding: 10px; text-align: right;">금액</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rowsHtml}
-      </tbody>
-    </table>
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>입금내역서_${customer.name}_${today()}</title>
+        <style>
+          body { font-family: 'Apple SD Gothic Neo', sans-serif; padding: 30px; color: #333; line-height: 1.5; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #d4af37; padding-bottom: 15px; }
+          .header h2 { margin: 0; color: #d4af37; font-size: 22px; }
+          .header h3 { margin: 5px 0 0 0; color: #444; font-size: 16px; }
+          .info-box { background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 25px; }
+          .info-box p { margin: 4px 0; font-size: 14px; }
+          table { width: 100%; border-collapse: collapse; font-size: 13px; }
+          th { background: #333; color: #fff; padding: 10px; text-align: center; }
+          .footer { margin-top: 40px; text-align: right; font-size: 11px; color: #888; }
+          @media print {
+            body { padding: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h2>HANGTHONG SOMBOON GOLD SAVINGS</h2>
+          <h3>입금/송금 내역서</h3>
+        </div>
+        
+        <div class="info-box">
+          <p><strong>고객명:</strong> ${customer.name}</p>
+          <p><strong>고객번호(Serial):</strong> ${customer.serial || '-'}</p>
+          <p><strong>전화번호:</strong> ${customer.phone || '-'}</p>
+          <p><strong>총 적립금액:</strong> <span style="color:#d4af37; font-weight:bold;">${money(info.total)}</span> (총 ${info.count}회)</p>
+        </div>
 
-    <div style="margin-top: 40px; text-align: right; font-size: 11px; color: #888;">
-      발급일자: ${today()}
-    </div>
-  `;
+        <table>
+          <thead>
+            <tr>
+              <th>NO</th>
+              <th>일자</th>
+              <th>적요/메모</th>
+              <th style="text-align: right;">금액</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
 
-  const opt = {
-    margin:       10,
-    filename:     `입금내역서_${customer.name}_${today()}.pdf`,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2 },
-    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  };
+        <div class="footer">
+          발급일자: ${today()}
+        </div>
+      </body>
+    </html>
+  `);
 
-  html2pdf().set(opt).from(pdfContainer).save();
+  printWindow.document.close();
+  printWindow.focus();
+  
+  setTimeout(() => {
+    printWindow.print();
+  }, 500);
 }
 
 async function renderAdmin() {
@@ -427,7 +441,7 @@ function openPasswordModal(customerId) {
 =========================================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
-  /* PDF 다운로드 버튼 클릭 연동 */
+  /* PDF/인쇄 다운로드 버튼 이벤트 연동 */
   document.getElementById("download-pdf-btn")?.addEventListener("click", downloadDepositPDF);
 
   /* 1. data-view 버튼을 통한 화면 전환 */
