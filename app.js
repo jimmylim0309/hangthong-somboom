@@ -463,3 +463,12 @@ async function renderDepositList(serial) {
 const initialDateEl = document.getElementById("deposit-date") || document.getElementById("new-deposit-date") || document.querySelector("input[type='date']");
 if (initialDateEl) initialDateEl.value = today();
 setLanguage(language);
+
+// 입금 폼 제출(Submit) 및 저장 버튼 이벤트 연결
+document.addEventListener("DOMContentLoaded", function () {
+  const depositForm = document.querySelector("#new-deposit-form");
+  
+  if (depositForm) {
+    depositForm.addEventListener("submit", handleDepositSubmit);
+  }
+});
