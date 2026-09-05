@@ -44,6 +44,7 @@ async function saveCustomerToDB(customerData) {
 }
 
 async function saveDepositToDB(depositData) {
+  console.log("-> saveDepositToDB 실행 시도:", depositData);
   const res = await fetch('/.netlify/functions/save-deposit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -133,8 +134,6 @@ async function renderAdmin() {
     if(select) select.innerHTML = `<option value="">${t("choose")}</option>` + customerOptions; 
   });
 
-  bindSelectChangeEvent();
-  
   if(document.getElementById("edit-customer-select")) document.getElementById("edit-customer-select").innerHTML = `<option value="">${t("chooseEdit")}</option>` + customerOptions; 
   if(document.getElementById("admin-customer-count")) document.getElementById("admin-customer-count").textContent = `${customers.length}${t("people")}`;
   
@@ -148,17 +147,6 @@ async function renderAdmin() {
     document.querySelectorAll(".password-check").forEach(button => button.addEventListener("click", () => openPasswordModal(button.dataset.customerId)));
   }
   show("admin-dashboard");
-}
-
-function bindSelectChangeEvent() {
-  const selectElements = document.querySelectorAll("#deposit-customer, #new-deposit-customer, #customer-select, select[name='customer']");
-  
-  selectElements.forEach(select => {
-    select.addEventListener("change", (e) => {
-      selectedCustomerIdForDeposit = e.target.value;
-      console.log("선택된 고객 ID:", selectedCustomerIdForDeposit);
-    });
-  });
 }
 
 function fillEditCustomer(customerId) {
@@ -298,25 +286,20 @@ document.getElementById("edit-customer-form")?.addEventListener("submit", async 
 
 // 핵심 처리 로직: 입금 처리 함수
 async function handleDepositSubmit(e) {
-  if (e) e.preventDefault();
-
-  const currentForm = e?.target || document.querySelector("#deposit-form, #new-deposit-form");
-  
-  // 1순위: 현재 제출된 폼 내부의 <select> 요소에서 선택값을 직관적으로 가져옴
-  let selectEl = currentForm ? currentForm.querySelector("select") : null;
-  if (!selectEl) {
-    selectEl = document.querySelector("#deposit-customer, #new-deposit-customer, #customer-select, select[name='customer']");
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
   }
 
-  let customerId = selectEl ? selectEl.value : selectedCustomerIdForDeposit;
+  // DOM 탐색
+  const selectEl = document.querySelector("#deposit-customer, #new-deposit-customer, #customer-select, select[name='customer']");
+  const customerId = selectEl ? selectEl.value : selectedCustomerIdForDeposit;
 
-  // 예외 검증 (고객 선택 안 됨 또는 빈 값/undefined 인 경우)
   if (!customerId || customerId === "" || customerId === "undefined") {
-    alert("입금할 고객을 올바르게 선택해 주세요.");
+    alert("입금할 고객을 선택해 주세요.");
     return;
   }
 
-  // 최신 DB 및 캐시 조회
   let customers = cachedCustomers.length ? cachedCustomers : await fetchCustomersFromDB();
   let customer = customers.find(c => String(c.id) === String(customerId) || String(c._id) === String(customerId));
 
@@ -331,13 +314,18 @@ async function handleDepositSubmit(e) {
     return;
   }
 
-  const amountInput = currentForm?.querySelector("input[type='number'], input[name='amount']") || document.getElementById("deposit-amount") || document.getElementById("new-deposit-amount");
-  const noteInput = currentForm?.querySelector("input[name='memo'], input[name='note']") || document.getElementById("deposit-note") || document.getElementById("deposit-memo") || document.getElementById("new-deposit-memo");
-  const dateInput = currentForm?.querySelector("input[type='date']") || document.getElementById("deposit-date") || document.getElementById("new-deposit-date");
+  const amountInput = document.querySelector("#deposit-amount, #new-deposit-amount, input[name='amount']");
+  const noteInput = document.querySelector("#deposit-note, #deposit-memo, #new-deposit-memo, input[name='memo']");
+  const dateInput = document.querySelector("#deposit-date, #new-deposit-date, input[type='date']");
 
   const amount = amountInput ? Number(amountInput.value) : 0;
   const noteValue = noteInput ? noteInput.value.trim() : "";
   const dateValue = dateInput ? dateInput.value : today();
+
+  if (!amount || amount <= 0) {
+    alert("올바른 입금 금액을 입력해 주세요.");
+    return;
+  }
 
   const targetId = customer.id || customer._id;
 
@@ -355,9 +343,9 @@ async function handleDepositSubmit(e) {
   try {
     await saveDepositToDB(depositData);
     
-    // 저장 후 전역 선택 값 및 폼 초기화
     selectedCustomerIdForDeposit = null;
-    if(currentForm && typeof currentForm.reset === 'function') currentForm.reset();
+    const form = selectEl?.closest("form");
+    if (form) form.reset();
     
     if (dateInput) dateInput.value = today();
     
@@ -372,17 +360,22 @@ async function handleDepositSubmit(e) {
   }
 }
 
-// 이벤트 바인딩 이중화 (form submit + button click)
-const depositForms = document.querySelectorAll("#deposit-form, #new-deposit-form");
-depositForms.forEach(form => {
-  form.addEventListener("submit", handleDepositSubmit);
+// 이벤트 위임 처리: 클릭 및 서브밋 방지
+document.addEventListener("click", function(e) {
+  // 클릭된 요소가 입금 저장 관련 버튼이거나 폼 안의 submit 버튼인 경우
+  const target = e.target;
+  if (target.matches("#save-deposit-btn, #new-deposit-form button[type='submit'], #deposit-form button[type='submit']") || target.closest("#save-deposit-btn")) {
+    e.preventDefault();
+    handleDepositSubmit(e);
+  }
 });
 
-// 만약 submit 버튼이 form 밖에 있거나 일반 button일 경우 대비
-const saveDepositBtn = document.getElementById("save-deposit-btn") || document.querySelector("button[type='submit']");
-if (saveDepositBtn && depositForms.length === 0) {
-  saveDepositBtn.addEventListener("click", handleDepositSubmit);
-}
+document.addEventListener("submit", function(e) {
+  if (e.target.matches("#deposit-form, #new-deposit-form")) {
+    e.preventDefault();
+    handleDepositSubmit(e);
+  }
+});
 
 if(document.getElementById("close-password-modal")) document.getElementById("close-password-modal").onclick = closePasswordModal;
 document.getElementById("password-modal")?.addEventListener("click", e => { if(e.target.id === "password-modal") closePasswordModal(); });
