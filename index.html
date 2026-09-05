@@ -74,7 +74,6 @@
             <strong id="customer-total">0원</strong>
             <small id="customer-last-deposit"></small>
           </article>
-          <!-- 수정: app.js의 이벤트 리스너 ID와 동일하게 download-pdf-btn으로 변경 -->
           <button id="download-pdf-btn" class="pdf-button" type="button">
             <span>↓</span><span data-i18n="downloadPdf">송금 내역 PDF 다운로드</span>
           </button>
@@ -138,11 +137,6 @@
         <div class="page-content admin-page">
           <p class="eyebrow" data-i18n="customerManagement">CUSTOMER MANAGEMENT</p>
           <h1 data-i18n="manageSavings">고객 적립금 관리</h1>
-          <div class="admin-actions">
-            <button class="outline-button" data-panel="customer-form" data-i18n="addCustomer">+ 고객 등록</button>
-            <button class="primary-button small" data-panel="deposit-form" data-i18n="recordDeposit">+ 입금 기록</button>
-            <button id="open-edit-customer" class="outline-button edit-action" type="button" data-i18n="editCustomer">고객 정보 수정</button>
-          </div>
 
           <!-- 신규 고객 등록 폼 -->
           <form id="new-customer-form" class="manager-form hidden">
@@ -225,7 +219,7 @@
         </div>
       </div>
 
-      <!-- 입금 내역 수정 모달 (main 태그 내부로 이동) -->
+      <!-- 입금 내역 수정 모달 -->
       <div id="edit-deposit-modal" class="modal hidden">
         <div class="modal-content">
           <h3>입금 내역 수정</h3>
