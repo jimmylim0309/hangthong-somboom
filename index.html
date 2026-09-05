@@ -171,41 +171,6 @@
             <button class="primary-button" type="submit" data-i18n="registerCustomer">고객 등록하기</button>
           </form>
 
-          <!-- 고객 정보 수정 폼 -->
-          <form id="edit-customer-form" class="manager-form hidden">
-            <div class="form-title-row">
-              <h2 data-i18n="editCustomer">고객 정보 수정</h2>
-              <button id="cancel-edit-customer" class="cancel-button" type="button" data-i18n="cancel">취소</button>
-            </div>
-            <input id="edit-customer-id" type="hidden" />
-            <label>
-              <span data-i18n="chooseCustomer">수정할 고객 선택</span>
-              <select id="edit-customer-select" required></select>
-            </label>
-            <label>
-              <span data-i18n="serial">시리얼번호</span>
-              <input id="edit-serial" required />
-            </label>
-            <label>
-              <span data-i18n="customerName">고객 이름</span>
-              <input id="edit-name" required />
-            </label>
-            <label>
-              <span data-i18n="phone">전화번호</span>
-              <input id="edit-phone" type="tel" inputmode="numeric" required />
-            </label>
-            <label>
-              <span data-i18n="address">주소</span>
-              <input id="edit-address" required />
-            </label>
-            <label>
-              <span data-i18n="customerPassword">고객 비밀번호</span>
-              <input id="edit-password" type="text" minlength="4" required />
-            </label>
-            <p id="edit-customer-error" class="form-error"></p>
-            <button class="primary-button" type="submit" data-i18n="saveCustomer">고객 정보 저장</button>
-          </form>
-
           <!-- 입금 기록 등록 폼 -->
           <form id="new-deposit-form" class="manager-form hidden">
             <h2 data-i18n="recordDepositPlain">입금 기록</h2>
