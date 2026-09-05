@@ -1,9 +1,21 @@
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
+  // CORS 및 HTTP 메소드 검증
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Content-Type': 'application/json'
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
+
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
+      headers,
       body: JSON.stringify({ error: 'Method Not Allowed' }),
     };
   }
@@ -15,34 +27,53 @@ exports.handler = async (event, context) => {
     if (!supabaseUrl || !supabaseKey) {
       return {
         statusCode: 500,
+        headers,
         body: JSON.stringify({ error: 'Supabase 환경 변수가 누락되었습니다.' }),
       };
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const depositData = JSON.parse(event.body);
+    const body = JSON.parse(event.body || '{}');
 
-    // id가 있으면 수정(Update), 없으면 신규 저장(Insert)
+    // Supabase deposits 테이블 컬럼에 정확히 맞춘 객체 생성
+    const payload = {
+      customer_id: body.customer_id || body.customerId,
+      serial: body.serial || '',
+      amount: Number(body.amount),
+      memo: body.memo || body.note || '',
+      date: body.date || body.created_at || new Date().toISOString().slice(0, 10)
+    };
+
+    // id가 명시되어 넘어온 경우에만 포함 (수정 작업 시 사용)
+    if (body.id) {
+      payload.id = body.id;
+    }
+
+    // Supabase DB 저장/수정 실행
     const { data, error } = await supabase
       .from('deposits')
-      .upsert([depositData])
+      .upsert([payload], { onConflict: 'id' })
       .select();
 
     if (error) {
+      console.error('Supabase Upsert Error:', error);
       return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ error: error.message }),
       };
     }
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(data),
     };
   } catch (err) {
+    console.error('Function Execution Error:', err);
     return {
       statusCode: 500,
+      headers,
       body: JSON.stringify({ error: err.message }),
     };
   }
