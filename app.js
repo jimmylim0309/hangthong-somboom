@@ -300,24 +300,18 @@ document.getElementById("edit-customer-form")?.addEventListener("submit", async 
 async function handleDepositSubmit(e) {
   if (e) e.preventDefault();
 
-  // 1순위: change 이벤트로 저장된 전역 변수 값 확인
-  let customerId = selectedCustomerIdForDeposit;
-
-  // 2순위: 변수에 값이 없을 경우 DOM 탐색 백업
-  const selectEl = document.querySelector("#deposit-customer, #new-deposit-customer, #customer-select, select[name='customer']");
+  const currentForm = e?.target || document.querySelector("#deposit-form, #new-deposit-form");
   
-  if (!customerId && selectEl) {
-    customerId = selectEl.value;
-    if (!customerId || customerId === "undefined") {
-      if (selectEl.selectedIndex >= 0) {
-        customerId = selectEl.options[selectEl.selectedIndex]?.value;
-      }
-    }
+  // 1순위: 현재 제출된 폼 내부의 <select> 요소에서 선택값을 직관적으로 가져옴
+  let selectEl = currentForm ? currentForm.querySelector("select") : null;
+  if (!selectEl) {
+    selectEl = document.querySelector("#deposit-customer, #new-deposit-customer, #customer-select, select[name='customer']");
   }
 
-  // 예외 검증 (고객 선택 안 됨 또는 '고객을 선택하세요' 기본 옵션 선택 상태)
-  const isDefaultOption = selectEl && selectEl.selectedIndex === 0;
-  if (!customerId || customerId === "" || customerId === "undefined" || isDefaultOption) {
+  let customerId = selectEl ? selectEl.value : selectedCustomerIdForDeposit;
+
+  // 예외 검증 (고객 선택 안 됨 또는 빈 값/undefined 인 경우)
+  if (!customerId || customerId === "" || customerId === "undefined") {
     alert("입금할 고객을 올바르게 선택해 주세요.");
     return;
   }
@@ -337,9 +331,9 @@ async function handleDepositSubmit(e) {
     return;
   }
 
-  const amountInput = document.getElementById("deposit-amount") || document.getElementById("new-deposit-amount") || document.querySelector("input[name='amount']");
-  const noteInput = document.getElementById("deposit-note") || document.getElementById("deposit-memo") || document.getElementById("new-deposit-memo") || document.querySelector("input[name='memo']");
-  const dateInput = document.getElementById("deposit-date") || document.getElementById("new-deposit-date") || document.querySelector("input[type='date']");
+  const amountInput = currentForm?.querySelector("input[type='number'], input[name='amount']") || document.getElementById("deposit-amount") || document.getElementById("new-deposit-amount");
+  const noteInput = currentForm?.querySelector("input[name='memo'], input[name='note']") || document.getElementById("deposit-note") || document.getElementById("deposit-memo") || document.getElementById("new-deposit-memo");
+  const dateInput = currentForm?.querySelector("input[type='date']") || document.getElementById("deposit-date") || document.getElementById("new-deposit-date");
 
   const amount = amountInput ? Number(amountInput.value) : 0;
   const noteValue = noteInput ? noteInput.value.trim() : "";
@@ -363,8 +357,7 @@ async function handleDepositSubmit(e) {
     
     // 저장 후 전역 선택 값 및 폼 초기화
     selectedCustomerIdForDeposit = null;
-    const targetForm = e?.target || document.querySelector("#deposit-form, #new-deposit-form");
-    if(targetForm && typeof targetForm.reset === 'function') targetForm.reset();
+    if(currentForm && typeof currentForm.reset === 'function') currentForm.reset();
     
     if (dateInput) dateInput.value = today();
     
