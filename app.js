@@ -73,7 +73,7 @@ function setLanguage(next) {
   document.querySelectorAll("[data-i18n-placeholder]").forEach(el=>el.placeholder=t(el.dataset.i18nPlaceholder)); 
   document.querySelectorAll(".language-button").forEach(button=>button.classList.toggle("active", button.dataset.language===language)); 
   if(activeCustomerId) renderCustomer(); 
-  if(!document.getElementById("admin-dashboard").classList.contains("hidden")) renderAdmin(); 
+  if(!document.getElementById("admin-dashboard")?.classList.contains("hidden")) renderAdmin(); 
 }
 
 function reportCanvas(customer, rows, page, pageCount) {
@@ -92,135 +92,192 @@ function downloadPdfFromJpegs(jpegs) {
 }
 async function downloadCustomerPdf() { const customer=cachedCustomers.find(c=>c.id===activeCustomerId); if(!customer)return; await document.fonts.ready; const deposits=[...(customer.deposits||[])].sort((a,b)=>b.date.localeCompare(a.date)); const groups=deposits.length ? Array.from({length:Math.ceil(deposits.length/18)},(_,i)=>deposits.slice(i*18,i*18+18)) : [[]]; downloadPdfFromJpegs(groups.map((group,i)=>bytesFromDataUrl(reportCanvas(customer,group,i+1,groups.length).toDataURL("image/jpeg",.94)))); }
 
-function show(id) { document.querySelectorAll(".screen").forEach(x => x.classList.add("hidden")); document.getElementById(id).classList.remove("hidden"); }
+function show(id) { document.querySelectorAll(".screen").forEach(x => x.classList.add("hidden")); document.getElementById(id)?.classList.remove("hidden"); }
 function totals(customer) { const deposits = customer.deposits || []; return { total:deposits.reduce((sum,d) => sum + Number(d.amount),0), count:deposits.length, recent:[...deposits].sort((a,b)=>b.date.localeCompare(a.date))[0] }; }
 function depositRow(d) { return `<div class="deposit-row"><div><p>${formatDate(d.date)}</p><small>${d.note || d.memo || t("deposit")}</small></div><strong>+${money(d.amount)}</strong></div>`; }
 
 async function renderCustomer() {
   await fetchCustomersFromDB();
   const customer = cachedCustomers.find(x => x.id === activeCustomerId); if (!customer) return show("customer-login");
-  const {total,count,recent} = totals(customer); document.getElementById("customer-name").textContent = customer.name; document.getElementById("customer-total").textContent = money(total); document.getElementById("customer-count").textContent = `${count}${t("times")}`; document.getElementById("customer-recent").textContent = recent ? formatDate(recent.date) : "-"; document.getElementById("customer-last-deposit").textContent = recent ? `${t("lastDeposit")} ${formatDate(recent.date)}` : t("noDeposit"); document.getElementById("deposit-count").textContent = `${count}${t("entries")}`;
-  const list = document.getElementById("customer-deposit-list"); list.innerHTML = count ? [...customer.deposits].sort((a,b)=>b.date.localeCompare(a.date)).map(depositRow).join("") : `<p class="empty">${t("noHistory")}</p>`; show("customer-dashboard");
+  const {total,count,recent} = totals(customer); 
+  if(document.getElementById("customer-name")) document.getElementById("customer-name").textContent = customer.name; 
+  if(document.getElementById("customer-total")) document.getElementById("customer-total").textContent = money(total); 
+  if(document.getElementById("customer-count")) document.getElementById("customer-count").textContent = `${count}${t("times")}`; 
+  if(document.getElementById("customer-recent")) document.getElementById("customer-recent").textContent = recent ? formatDate(recent.date) : "-"; 
+  if(document.getElementById("customer-last-deposit")) document.getElementById("customer-last-deposit").textContent = recent ? `${t("lastDeposit")} ${formatDate(recent.date)}` : t("noDeposit"); 
+  if(document.getElementById("deposit-count")) document.getElementById("deposit-count").textContent = `${count}${t("entries")}`;
+  const list = document.getElementById("customer-deposit-list"); 
+  if(list) list.innerHTML = count ? [...customer.deposits].sort((a,b)=>b.date.localeCompare(a.date)).map(depositRow).join("") : `<p class="empty">${t("noHistory")}</p>`; 
+  show("customer-dashboard");
 }
 
 async function renderAdmin() {
   const customers = await fetchCustomersFromDB();
-  const bySerial = [...customers].sort((a,b) => { if (!a.serial) return 1; if (!b.serial) return -1; return String(a.serial).localeCompare(String(b.serial), language, { numeric:true, sensitivity:"base" }); }); const customerOptions = bySerial.map(x=>`<option value="${x.id}">[${x.serial || t("unregistered")}] ${x.name} · ${x.phone}</option>`).join(""); const select = document.getElementById("deposit-customer"); select.innerHTML = `<option value="">${t("choose")}</option>` + customerOptions; document.getElementById("edit-customer-select").innerHTML = `<option value="">${t("chooseEdit")}</option>` + customerOptions; document.getElementById("admin-customer-count").textContent = `${customers.length}${t("people")}`;
-  document.getElementById("admin-customer-list").innerHTML = customers.length ? bySerial.map(c=>{ const total=totals(c); return `<div class="customer-row"><div><p>${c.name}</p><small>${t("serial")} ${c.serial || t("unregistered")} · ${c.phone} · ${total.count}${t("times")} ${t("deposit")}</small><div class="customer-buttons"><button class="password-check" data-customer-id="${c.id}">${t("passwordCheck")}</button></div></div><strong>${money(total.total)}</strong></div>`; }).join("") : `<p class="empty">${t("noCustomers")}</p>`; document.querySelectorAll(".password-check").forEach(button => button.addEventListener("click", () => openPasswordModal(button.dataset.customerId))); show("admin-dashboard");
+  const bySerial = [...customers].sort((a,b) => { if (!a.serial) return 1; if (!b.serial) return -1; return String(a.serial).localeCompare(String(b.serial), language, { numeric:true, sensitivity:"base" }); }); 
+  const customerOptions = bySerial.map(x=>`<option value="${x.id}">[${x.serial || t("unregistered")}] ${x.name} · ${x.phone}</option>`).join(""); 
+  const select = document.getElementById("deposit-customer"); 
+  if(select) select.innerHTML = `<option value="">${t("choose")}</option>` + customerOptions; 
+  if(document.getElementById("edit-customer-select")) document.getElementById("edit-customer-select").innerHTML = `<option value="">${t("chooseEdit")}</option>` + customerOptions; 
+  if(document.getElementById("admin-customer-count")) document.getElementById("admin-customer-count").textContent = `${customers.length}${t("people")}`;
+  const adminList = document.getElementById("admin-customer-list");
+  if(adminList) {
+    adminList.innerHTML = customers.length ? bySerial.map(c=>{ const total=totals(c); return `<div class="customer-row"><div><p>${c.name}</p><small>${t("serial")} ${c.serial || t("unregistered")} · ${c.phone} · ${total.count}${t("times")} ${t("deposit")}</small><div class="customer-buttons"><button class="password-check" data-customer-id="${c.id}">${t("passwordCheck")}</button></div></div><strong>${money(total.total)}</strong></div>`; }).join("") : `<p class="empty">${t("noCustomers")}</p>`; 
+    document.querySelectorAll(".password-check").forEach(button => button.addEventListener("click", () => openPasswordModal(button.dataset.customerId)));
+  }
+  show("admin-dashboard");
 }
 
-function fillEditCustomer(customerId) { const customer=cachedCustomers.find(c=>c.id===customerId); document.getElementById("edit-customer-id").value=customer ? customer.id : ""; document.getElementById("edit-serial").value=customer ? customer.serial || "" : ""; document.getElementById("edit-name").value=customer ? customer.name : ""; document.getElementById("edit-phone").value=customer ? customer.phone : ""; document.getElementById("edit-address").value=customer ? customer.address || "" : ""; document.getElementById("edit-password").value=customer ? customer.password : ""; }
-function openEditCustomer() { document.getElementById("new-customer-form").classList.add("hidden"); document.getElementById("edit-customer-select").value=""; fillEditCustomer(""); document.getElementById("edit-customer-error").textContent=""; document.getElementById("edit-customer-form").classList.remove("hidden"); document.getElementById("edit-customer-form").scrollIntoView({behavior:"smooth", block:"start"}); }
-function openPasswordModal(customerId) { passwordCustomerId=customerId; const customer=cachedCustomers.find(c=>c.id===customerId); document.getElementById("password-modal-title").textContent=language === "th" ? `${t("passwordCheck")} ${customer.name}` : `${customer.name}${t("customerPasswordTitle")}`; document.getElementById("password-confirm-form").classList.remove("hidden"); document.getElementById("password-confirm-form").reset(); document.getElementById("password-confirm-error").textContent=""; document.getElementById("revealed-password").classList.add("hidden"); document.getElementById("password-modal").classList.remove("hidden"); setTimeout(()=>document.getElementById("password-confirm-input").focus(),0); }
-function closePasswordModal() { passwordCustomerId=null; document.getElementById("password-modal").classList.add("hidden"); }
+function fillEditCustomer(customerId) { 
+  const customer=cachedCustomers.find(c=>c.id===customerId); 
+  if(document.getElementById("edit-customer-id")) document.getElementById("edit-customer-id").value=customer ? customer.id : ""; 
+  if(document.getElementById("edit-serial")) document.getElementById("edit-serial").value=customer ? customer.serial || "" : ""; 
+  if(document.getElementById("edit-name")) document.getElementById("edit-name").value=customer ? customer.name : ""; 
+  if(document.getElementById("edit-phone")) document.getElementById("edit-phone").value=customer ? customer.phone : ""; 
+  if(document.getElementById("edit-address")) document.getElementById("edit-address").value=customer ? customer.address || "" : ""; 
+  if(document.getElementById("edit-password")) document.getElementById("edit-password").value=customer ? customer.password : ""; 
+}
+
+function openEditCustomer() { 
+  document.getElementById("new-customer-form")?.classList.add("hidden"); 
+  if(document.getElementById("edit-customer-select")) document.getElementById("edit-customer-select").value=""; 
+  fillEditCustomer(""); 
+  if(document.getElementById("edit-customer-error")) document.getElementById("edit-customer-error").textContent=""; 
+  document.getElementById("edit-customer-form")?.classList.remove("hidden"); 
+  document.getElementById("edit-customer-form")?.scrollIntoView({behavior:"smooth", block:"start"}); 
+}
+
+function openPasswordModal(customerId) { 
+  passwordCustomerId=customerId; 
+  const customer=cachedCustomers.find(c=>c.id===customerId); 
+  if(document.getElementById("password-modal-title")) document.getElementById("password-modal-title").textContent=language === "th" ? `${t("passwordCheck")} ${customer.name}` : `${customer.name}${t("customerPasswordTitle")}`; 
+  document.getElementById("password-confirm-form")?.classList.remove("hidden"); 
+  document.getElementById("password-confirm-form")?.reset(); 
+  if(document.getElementById("password-confirm-error")) document.getElementById("password-confirm-error").textContent=""; 
+  document.getElementById("revealed-password")?.classList.add("hidden"); 
+  document.getElementById("password-modal")?.classList.remove("hidden"); 
+  setTimeout(()=>document.getElementById("password-confirm-input")?.focus(),0); 
+}
+
+function closePasswordModal() { 
+  passwordCustomerId=null; 
+  document.getElementById("password-modal")?.classList.add("hidden"); 
+}
 
 document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => show(button.dataset.view)));
 document.querySelectorAll("[data-language]").forEach(button => button.addEventListener("click", () => setLanguage(button.dataset.language)));
 
-document.getElementById("customer-login-form").addEventListener("submit", async e => { 
+document.getElementById("customer-login-form")?.addEventListener("submit", async e => { 
   e.preventDefault(); 
   const customers = await fetchCustomersFromDB();
-  const found = customers.find(c => c.phone === phone(document.getElementById("customer-phone").value) && c.password === document.getElementById("customer-password").value); 
-  const error=document.getElementById("customer-login-error"); 
-  if (!found) { error.textContent=t("invalidLogin"); return; } 
-  error.textContent=""; 
+  const phoneVal = document.getElementById("customer-phone")?.value || "";
+  const passVal = document.getElementById("customer-password")?.value || "";
+  const found = customers.find(c => c.phone === phone(phoneVal) && c.password === passVal); 
+  const error = document.getElementById("customer-login-error"); 
+  if (!found) { if(error) error.textContent=t("invalidLogin"); return; } 
+  if(error) error.textContent=""; 
   activeCustomerId=found.id; 
   renderCustomer(); 
 });
 
-document.getElementById("admin-login-form").addEventListener("submit", e => { 
+document.getElementById("admin-login-form")?.addEventListener("submit", e => { 
   e.preventDefault(); 
-  const error=document.getElementById("admin-login-error"); 
-  if(document.getElementById("admin-password").value !== ADMIN_PASSWORD) { error.textContent=t("invalidAdmin"); return; } 
-  error.textContent=""; 
+  const error = document.getElementById("admin-login-error"); 
+  const adminPassVal = document.getElementById("admin-password")?.value || "";
+  if(adminPassVal !== ADMIN_PASSWORD) { if(error) error.textContent=t("invalidAdmin"); return; } 
+  if(error) error.textContent=""; 
   renderAdmin(); 
 });
 
-document.getElementById("customer-logout").onclick = () => { activeCustomerId=null; document.getElementById("customer-login-form").reset(); show("customer-login"); }; 
-document.getElementById("admin-logout").onclick = () => { document.getElementById("admin-login-form").reset(); show("customer-login"); };
-document.getElementById("download-pdf").onclick = downloadCustomerPdf;
-document.querySelectorAll("[data-panel]").forEach(button => button.addEventListener("click", () => document.getElementById(`new-${button.dataset.panel}`).classList.toggle("hidden")));
+if(document.getElementById("customer-logout")) document.getElementById("customer-logout").onclick = () => { activeCustomerId=null; document.getElementById("customer-login-form")?.reset(); show("customer-login"); }; 
+if(document.getElementById("admin-logout")) document.getElementById("admin-logout").onclick = () => { document.getElementById("admin-login-form")?.reset(); show("customer-login"); };
+if(document.getElementById("download-pdf")) document.getElementById("download-pdf").onclick = downloadCustomerPdf;
+document.querySelectorAll("[data-panel]").forEach(button => button.addEventListener("click", () => document.getElementById(`new-${button.dataset.panel}`)?.classList.toggle("hidden")));
 
 // 신규 고객 등록 (Supabase DB 저장)
-document.getElementById("new-customer-form").addEventListener("submit", async e => { 
+document.getElementById("new-customer-form")?.addEventListener("submit", async e => { 
   e.preventDefault(); 
   const customers = await fetchCustomersFromDB();
   const error = document.getElementById("new-customer-error");
-  const newPhone = phone(document.getElementById("new-phone").value);
-  const serial = document.getElementById("new-serial").value.trim();
+  const newPhone = phone(document.getElementById("new-phone")?.value || "");
+  const serial = (document.getElementById("new-serial")?.value || "").trim();
 
-  if(customers.some(c=>c.phone===newPhone)){ error.textContent=t("duplicatePhone"); return; } 
-  if(customers.some(c=>c.serial && c.serial.toLowerCase()===serial.toLowerCase())){ error.textContent=t("duplicateSerial"); return; } 
+  if(customers.some(c=>c.phone===newPhone)){ if(error) error.textContent=t("duplicatePhone"); return; } 
+  if(customers.some(c=>c.serial && c.serial.toLowerCase()===serial.toLowerCase())){ if(error) error.textContent=t("duplicateSerial"); return; } 
 
   const newCustomerData = {
     serial,
-    name: document.getElementById("new-name").value.trim(),
+    name: (document.getElementById("new-name")?.value || "").trim(),
     phone: newPhone,
-    address: document.getElementById("new-address").value.trim(),
-    password: document.getElementById("new-password").value
+    address: (document.getElementById("new-address")?.value || "").trim(),
+    password: document.getElementById("new-password")?.value || ""
   };
 
   try {
     await saveCustomerToDB(newCustomerData);
     e.target.reset();
-    error.textContent = "";
-    document.getElementById("new-customer-form").classList.add("hidden");
+    if(error) error.textContent = "";
+    document.getElementById("new-customer-form")?.classList.add("hidden");
     await renderAdmin();
   } catch(err) {
     console.error(err);
-    error.textContent = "저장 중 오류가 발생했습니다.";
+    if(error) error.textContent = "저장 중 오류가 발생했습니다.";
   }
 });
 
-document.getElementById("cancel-edit-customer").onclick = () => document.getElementById("edit-customer-form").classList.add("hidden");
-document.getElementById("open-edit-customer").onclick = openEditCustomer;
-document.getElementById("edit-customer-select").addEventListener("change", e => { fillEditCustomer(e.target.value); document.getElementById("edit-customer-error").textContent=""; });
+if(document.getElementById("cancel-edit-customer")) document.getElementById("cancel-edit-customer").onclick = () => document.getElementById("edit-customer-form")?.classList.add("hidden");
+if(document.getElementById("open-edit-customer")) document.getElementById("open-edit-customer").onclick = openEditCustomer;
+document.getElementById("edit-customer-select")?.addEventListener("change", e => { fillEditCustomer(e.target.value); if(document.getElementById("edit-customer-error")) document.getElementById("edit-customer-error").textContent=""; });
 
 // 고객 정보 수정 (Supabase DB 저장)
-document.getElementById("edit-customer-form").addEventListener("submit", async e => { 
+document.getElementById("edit-customer-form")?.addEventListener("submit", async e => { 
   e.preventDefault(); 
   const customers = await fetchCustomersFromDB();
   const error = document.getElementById("edit-customer-error");
-  const id = document.getElementById("edit-customer-id").value;
+  const id = document.getElementById("edit-customer-id")?.value;
   const customer = customers.find(c=>c.id===id);
-  const serial = document.getElementById("edit-serial").value.trim();
-  const updatedPhone = phone(document.getElementById("edit-phone").value);
+  const serial = (document.getElementById("edit-serial")?.value || "").trim();
+  const updatedPhone = phone(document.getElementById("edit-phone")?.value || "");
 
   if(!customer) return; 
-  if(customers.some(c=>c.id!==id && c.phone===updatedPhone)){ error.textContent=t("duplicatePhone"); return; } 
-  if(customers.some(c=>c.id!==id && c.serial && c.serial.toLowerCase()===serial.toLowerCase())){ error.textContent=t("duplicateSerial"); return; } 
+  if(customers.some(c=>c.id!==id && c.phone===updatedPhone)){ if(error) error.textContent=t("duplicatePhone"); return; } 
+  if(customers.some(c=>c.id!==id && c.serial && c.serial.toLowerCase()===serial.toLowerCase())){ if(error) error.textContent=t("duplicateSerial"); return; } 
 
   const updatedCustomerData = {
     id,
     serial,
-    name: document.getElementById("edit-name").value.trim(),
+    name: (document.getElementById("edit-name")?.value || "").trim(),
     phone: updatedPhone,
-    address: document.getElementById("edit-address").value.trim(),
-    password: document.getElementById("edit-password").value
+    address: (document.getElementById("edit-address")?.value || "").trim(),
+    password: document.getElementById("edit-password")?.value || ""
   };
 
   try {
     await saveCustomerToDB(updatedCustomerData);
-    document.getElementById("edit-customer-form").classList.add("hidden");
-    error.textContent = "";
+    document.getElementById("edit-customer-form")?.classList.add("hidden");
+    if(error) error.textContent = "";
     await renderAdmin();
   } catch(err) {
     console.error(err);
-    error.textContent = "수정 중 오류가 발생했습니다.";
+    if(error) error.textContent = "수정 중 오류가 발생했습니다.";
   }
 });
 
-// 신규 입금 기록 (Supabase DB 저장 - 에러 수정 완료)
-document.getElementById("new-deposit-form").addEventListener("submit", async e => { 
+// 신규 입금 기록 (안전한 요소 참조 및 오류 예방 처리 완료)
+document.getElementById("new-deposit-form")?.addEventListener("submit", async e => { 
   e.preventDefault(); 
-  const customerId = document.getElementById("deposit-customer").value;
+  const customerId = document.getElementById("deposit-customer")?.value;
   if(!customerId) return;
 
   const customer = cachedCustomers.find(c => c.id === customerId);
   const serial = customer ? customer.serial : "";
-  const amount = Number(document.getElementById("deposit-amount").value);
-  const memo = document.getElementById("deposit-memo").value;
-  const date = document.getElementById("deposit-date").value;
+
+  const amountInput = document.getElementById("deposit-amount") || document.getElementById("new-deposit-amount");
+  const memoInput = document.getElementById("deposit-memo") || document.getElementById("new-deposit-memo");
+  const dateInput = document.getElementById("deposit-date") || document.getElementById("new-deposit-date");
+
+  const amount = amountInput ? Number(amountInput.value) : 0;
+  const memo = memoInput ? memoInput.value : "";
+  const date = dateInput ? dateInput.value : today();
 
   const depositData = {
     customer_id: customerId,
@@ -233,8 +290,9 @@ document.getElementById("new-deposit-form").addEventListener("submit", async e =
   try {
     await saveDepositToDB(depositData);
     e.target.reset();
-    document.getElementById("deposit-date").value = today();
-    document.getElementById("new-deposit-form").classList.add("hidden");
+    const dateEl = document.getElementById("deposit-date") || document.getElementById("new-deposit-date");
+    if(dateEl) dateEl.value = today();
+    document.getElementById("new-deposit-form")?.classList.add("hidden");
     await renderAdmin();
   } catch(err) {
     console.error(err);
@@ -242,17 +300,18 @@ document.getElementById("new-deposit-form").addEventListener("submit", async e =
   }
 });
 
-document.getElementById("close-password-modal").onclick = closePasswordModal;
-document.getElementById("password-modal").addEventListener("click", e => { if(e.target.id === "password-modal") closePasswordModal(); });
-document.getElementById("password-confirm-form").addEventListener("submit", e => { 
+if(document.getElementById("close-password-modal")) document.getElementById("close-password-modal").onclick = closePasswordModal;
+document.getElementById("password-modal")?.addEventListener("click", e => { if(e.target.id === "password-modal") closePasswordModal(); });
+document.getElementById("password-confirm-form")?.addEventListener("submit", e => { 
   e.preventDefault(); 
   const error = document.getElementById("password-confirm-error"); 
-  if(document.getElementById("password-confirm-input").value !== ADMIN_PASSWORD) { error.textContent=t("invalidAdmin"); return; } 
+  const confirmInput = document.getElementById("password-confirm-input")?.value || "";
+  if(confirmInput !== ADMIN_PASSWORD) { if(error) error.textContent=t("invalidAdmin"); return; } 
   const customer = cachedCustomers.find(c=>c.id===passwordCustomerId); 
   if(!customer) return closePasswordModal(); 
-  document.getElementById("password-confirm-form").classList.add("hidden"); 
-  document.getElementById("revealed-password-value").textContent = customer.password; 
-  document.getElementById("revealed-password").classList.remove("hidden"); 
+  document.getElementById("password-confirm-form")?.classList.add("hidden"); 
+  if(document.getElementById("revealed-password-value")) document.getElementById("revealed-password-value").textContent = customer.password; 
+  document.getElementById("revealed-password")?.classList.remove("hidden"); 
 });
 
 // 입금 내역 수정 함수
@@ -323,5 +382,6 @@ async function renderDepositList(serial) {
 }
 
 // 초기화 실행
-document.getElementById("deposit-date").value = today();
+const initialDateEl = document.getElementById("deposit-date") || document.getElementById("new-deposit-date");
+if (initialDateEl) initialDateEl.value = today();
 setLanguage(language);
