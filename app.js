@@ -561,31 +561,48 @@ async function renderAdmin() {
   show("admin-dashboard");
 }
 
-// 입금 내역 수정 제출
-  document.getElementById("edit-deposit-form")?.addEventListener("submit", async e => {
-    e.preventDefault();
-    const id = document.getElementById("edit-deposit-id").value;
-    const customerId = document.getElementById("edit-deposit-customer-id").value;
-    const amount = Number(document.getElementById("edit-deposit-amount").value);
-    const date = document.getElementById("edit-deposit-date").value;
-    const note = document.getElementById("edit-deposit-note").value;
+// app.js 하단 이벤트 연결 부분
 
-    try {
-      await saveDepositToDB({
-        id: id,
-        customer_id: customerId,
-        amount: amount,
-        created_at: date,
-        memo: note,
-        note: note
-      });
-      alert("입금 내역이 수정되었습니다.");
-      document.getElementById("edit-deposit-modal")?.classList.add("hidden");
-      await renderAdmin();
-    } catch (err) {
-      alert("수정 실패: " + err.message);
-    }
-  });
+// 수정 완료 버튼 클릭 이벤트
+document.getElementById("submit-edit-deposit-btn")?.addEventListener("click", async (e) => {
+  e.preventDefault(); // 페이지 새로고침 방지
+
+  const id = document.getElementById("edit-deposit-id").value;
+  const customerId = document.getElementById("edit-deposit-customer-id").value;
+  const amount = Number(document.getElementById("edit-deposit-amount").value);
+  const date = document.getElementById("edit-deposit-date").value;
+  const note = document.getElementById("edit-deposit-note").value;
+
+  if (!amount || amount <= 0) {
+    alert("올바른 입금액을 입력해주세요.");
+    return;
+  }
+
+  try {
+    // DB 저장 API 호출
+    await saveDepositToDB({
+      id: id,
+      customer_id: customerId,
+      amount: amount,
+      created_at: date,
+      date: date,
+      memo: note,
+      note: note
+    });
+
+    alert("입금 내역이 수정되었습니다.");
+    
+    // 모달 닫기
+    document.getElementById("edit-deposit-modal")?.classList.add("hidden");
+    
+    // 관리자 화면 재렌더링 (새로고침 없이 데이터 갱신)
+    await renderAdmin();
+
+  } catch (err) {
+    console.error("수정 실패:", err);
+    alert("수정 실패: " + err.message);
+  }
+});
 
   // 입금 내역 삭제 버튼 클릭
   document.getElementById("delete-deposit-btn")?.addEventListener("click", async () => {
