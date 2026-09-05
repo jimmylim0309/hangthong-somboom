@@ -235,3 +235,135 @@ document.getElementById("password-confirm-form").addEventListener("submit", e =>
 
 document.getElementById("deposit-date").value = today();
 setLanguage(language);
+// 1. 특정 고객의 입금 내역 조회
+async function fetchDepositsFromDB(serial) {
+  try {
+    const response = await fetch(`/.netlify/functions/get-deposits?serial=${encodeURIComponent(serial)}`);
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || '입금 내역 불러오기 실패');
+    }
+    const data = await response.json();
+    return data; // 입금 내역 배열 반환
+  } catch (error) {
+    console.error('API Error:', error);
+    alert('입금 내역 조회 오류: ' + error.message);
+    return [];
+  }
+}
+
+// 2. 입금 내역 저장 및 수정 (id가 있으면 수정, 없으면 신규 저장)
+async function saveDepositToDB(depositData) {
+  // depositData 구조 예시:
+  // 신규 등록: { serial: '1001', amount: 50000, memo: '충전' }
+  // 기존 수정: { id: 3, serial: '1001', amount: 60000, memo: '금액 수정' }
+  try {
+    const response = await fetch('/.netlify/functions/save-deposit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(depositData),
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || '입금 내역 저장 실패');
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('API Error:', error);
+    alert('입금 내역 저장 오류: ' + error.message);
+    throw error;
+  }
+}
+// 입금 등록 폼 이벤트 예시
+document.getElementById('deposit-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const serial = document.getElementById('deposit-serial').value;
+  const amount = Number(document.getElementById('deposit-amount').value);
+  const memo = document.getElementById('deposit-memo').value;
+
+  const newDeposit = {
+    serial: serial,
+    amount: amount,
+    memo: memo
+  };
+
+  try {
+    await saveDepositToDB(newDeposit);
+    alert('입금 내역이 정상적으로 등록되었습니다.');
+    // 폼 초기화 및 목록 재갱신 로직 실행
+    e.target.reset();
+    renderDepositList(serial); 
+  } catch (err) {
+    // 에러 처리는 saveDepositToDB 내부에서 수행됨
+  }
+});
+// 입금 내역 수정 함수 (예: 수정 버튼 클릭 시 실행)
+async function handleEditDeposit(id, serial, currentAmount, currentMemo) {
+  const newAmount = prompt('수정할 입금 금액을 입력하세요:', currentAmount);
+  if (newAmount === null) return; // 취소 클릭 시
+
+  const newMemo = prompt('수정할 메모를 입력하세요:', currentMemo);
+  if (newMemo === null) return;
+
+  const updatedDeposit = {
+    id: id,            // PK인 id를 넘겨줘야 기존 데이터가 수정됨
+    serial: serial,
+    amount: Number(newAmount),
+    memo: newMemo
+  };
+
+  try {
+    await saveDepositToDB(updatedDeposit);
+    alert('입금 내역이 수정되었습니다.');
+    renderDepositList(serial); // 목록 재갱신
+  } catch (err) {
+    // 에러 발생 처리
+  }
+}
+async function renderDepositList(serial) {
+  const container = document.getElementById('deposit-list-container');
+  container.innerHTML = '로딩 중...';
+
+  const deposits = await fetchDepositsFromDB(serial);
+
+  if (deposits.length === 0) {
+    container.innerHTML = '<p>입금 내역이 없습니다.</p>';
+    return;
+  }
+
+  let html = `
+    <table class="deposit-table">
+      <thead>
+        <tr>
+          <th>일시</th>
+          <th>금액</th>
+          <th>메모</th>
+          <th>관리</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  deposits.forEach(item => {
+    const date = new Date(item.created_at).toLocaleDateString();
+    html += `
+      <tr>
+        <td>${date}</td>
+        <td>${Number(item.amount).toLocaleString()}원</td>
+        <td>${item.memo || '-'}</td>
+        <td>
+          <button onclick="handleEditDeposit(${item.id}, '${item.serial}', ${item.amount}, '${item.memo || ''}')">수정</button>
+        </td>
+      </tr>
+    `;
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
