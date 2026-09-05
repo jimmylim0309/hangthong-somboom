@@ -120,11 +120,18 @@ async function renderCustomer() {
 async function renderAdmin() {
   const customers = await fetchCustomersFromDB();
   const bySerial = [...customers].sort((a,b) => { if (!a.serial) return 1; if (!b.serial) return -1; return String(a.serial).localeCompare(String(b.serial), language, { numeric:true, sensitivity:"base" }); }); 
-  const customerOptions = bySerial.map(x=>`<option value="${x.id}">[${x.serial || t("unregistered")}] ${x.name} · ${x.phone}</option>`).join(""); 
+  
+  // ID 필드 명칭(_id, id) 안전 매핑 및 option 태그 생성
+  const customerOptions = bySerial.map(x => {
+    const customerId = x.id || x._id || "";
+    return `<option value="${customerId}">[${x.serial || t("unregistered")}] ${x.name} · ${x.phone}</option>`;
+  }).join("");
+
   const select = document.getElementById("deposit-customer"); 
   if(select) select.innerHTML = `<option value="">${t("choose")}</option>` + customerOptions; 
   if(document.getElementById("edit-customer-select")) document.getElementById("edit-customer-select").innerHTML = `<option value="">${t("chooseEdit")}</option>` + customerOptions; 
   if(document.getElementById("admin-customer-count")) document.getElementById("admin-customer-count").textContent = `${customers.length}${t("people")}`;
+  
   const adminList = document.getElementById("admin-customer-list");
   if(adminList) {
     adminList.innerHTML = customers.length ? bySerial.map(c=>{ const total=totals(c); return `<div class="customer-row"><div><p>${c.name}</p><small>${t("serial")} ${c.serial || t("unregistered")} · ${c.phone} · ${total.count}${t("times")} ${t("deposit")}</small><div class="customer-buttons"><button class="password-check" data-customer-id="${c.id}">${t("passwordCheck")}</button></div></div><strong>${money(total.total)}</strong></div>`; }).join("") : `<p class="empty">${t("noCustomers")}</p>`; 
@@ -134,8 +141,8 @@ async function renderAdmin() {
 }
 
 function fillEditCustomer(customerId) { 
-  const customer=cachedCustomers.find(c=>String(c.id)===String(customerId)); 
-  if(document.getElementById("edit-customer-id")) document.getElementById("edit-customer-id").value=customer ? customer.id : ""; 
+  const customer=cachedCustomers.find(c=>String(c.id)===String(customerId) || String(c._id)===String(customerId)); 
+  if(document.getElementById("edit-customer-id")) document.getElementById("edit-customer-id").value=customer ? (customer.id || customer._id) : ""; 
   if(document.getElementById("edit-serial")) document.getElementById("edit-serial").value=customer ? customer.serial || "" : ""; 
   if(document.getElementById("edit-name")) document.getElementById("edit-name").value=customer ? customer.name : ""; 
   if(document.getElementById("edit-phone")) document.getElementById("edit-phone").value=customer ? customer.phone : ""; 
@@ -154,7 +161,7 @@ function openEditCustomer() {
 
 function openPasswordModal(customerId) { 
   passwordCustomerId=customerId; 
-  const customer=cachedCustomers.find(c=>String(c.id)===String(customerId)); 
+  const customer=cachedCustomers.find(c=>String(c.id)===String(customerId) || String(c._id)===String(customerId)); 
   if(document.getElementById("password-modal-title")) document.getElementById("password-modal-title").textContent=language === "th" ? `${t("passwordCheck")} ${customer?.name || ""}` : `${customer?.name || ""}${t("customerPasswordTitle")}`; 
   document.getElementById("password-confirm-form")?.classList.remove("hidden"); 
   document.getElementById("password-confirm-form")?.reset(); 
@@ -181,7 +188,7 @@ document.getElementById("customer-login-form")?.addEventListener("submit", async
   const error = document.getElementById("customer-login-error"); 
   if (!found) { if(error) error.textContent=t("invalidLogin"); return; } 
   if(error) error.textContent=""; 
-  activeCustomerId=found.id; 
+  activeCustomerId=found.id || found._id; 
   renderCustomer(); 
 });
 
@@ -240,16 +247,16 @@ document.getElementById("edit-customer-form")?.addEventListener("submit", async 
   const customers = await fetchCustomersFromDB();
   const error = document.getElementById("edit-customer-error");
   const id = document.getElementById("edit-customer-id")?.value;
-  const customer = customers.find(c=>String(c.id)===String(id));
+  const customer = customers.find(c=>String(c.id)===String(id) || String(c._id)===String(id));
   const serial = (document.getElementById("edit-serial")?.value || "").trim();
   const updatedPhone = phone(document.getElementById("edit-phone")?.value || "");
 
   if(!customer) return; 
-  if(customers.some(c=>String(c.id)!==String(id) && c.phone===updatedPhone)){ if(error) error.textContent=t("duplicatePhone"); return; } 
-  if(customers.some(c=>String(c.id)!==String(id) && c.serial && c.serial.toLowerCase()===serial.toLowerCase())){ if(error) error.textContent=t("duplicateSerial"); return; } 
+  if(customers.some(c=>(String(c.id)!==String(id) && String(c._id)!==String(id)) && c.phone===updatedPhone)){ if(error) error.textContent=t("duplicatePhone"); return; } 
+  if(customers.some(c=>(String(c.id)!==String(id) && String(c._id)!==String(id)) && c.serial && c.serial.toLowerCase()===serial.toLowerCase())){ if(error) error.textContent=t("duplicateSerial"); return; } 
 
   const updatedCustomerData = {
-    id,
+    id: id,
     serial,
     name: (document.getElementById("edit-name")?.value || "").trim(),
     phone: updatedPhone,
@@ -268,21 +275,24 @@ document.getElementById("edit-customer-form")?.addEventListener("submit", async 
   }
 });
 
-// 신규 입금 기록 제출 (customer_id 및 백엔드 필드 대응 완료)
+// 신규 입금 기록 제출 (드롭다운 검증 강화 및 고객 매칭 보장)
 document.getElementById("new-deposit-form")?.addEventListener("submit", async e => { 
   e.preventDefault(); 
   
   const selectEl = document.getElementById("deposit-customer");
-  const customerId = selectEl ? selectEl.value : "";
+  if (!selectEl) return;
 
-  if (!customerId || customerId === "undefined") {
+  const selectedOption = selectEl.options[selectEl.selectedIndex];
+  const customerId = selectEl.value || (selectedOption ? selectedOption.value : "");
+
+  if (!customerId || customerId === "undefined" || selectEl.selectedIndex === 0) {
     alert("입금할 고객을 올바르게 선택해 주세요.");
     return;
   }
 
-  const customer = cachedCustomers.find(c => String(c.id) === String(customerId));
+  const customer = cachedCustomers.find(c => String(c.id) === String(customerId) || String(c._id) === String(customerId));
   if (!customer) {
-    alert("선택한 고객 정보를 찾을 수 없습니다. 고객 목록을 다시 확인해 주세요.");
+    alert("선택한 고객 정보를 찾을 수 없습니다. 페이지를 새로고침 후 다시 시도해 주세요.");
     return;
   }
 
@@ -294,9 +304,11 @@ document.getElementById("new-deposit-form")?.addEventListener("submit", async e 
   const noteValue = noteInput ? noteInput.value.trim() : "";
   const dateValue = dateInput ? dateInput.value : today();
 
+  const targetId = customer.id || customer._id;
+
   const depositData = {
-    customer_id: customer.id,
-    customerId: customer.id,
+    customer_id: targetId,
+    customerId: targetId,
     serial: customer.serial || "",
     amount: amount,
     memo: noteValue,
@@ -328,7 +340,7 @@ document.getElementById("password-confirm-form")?.addEventListener("submit", e =
   const error = document.getElementById("password-confirm-error"); 
   const confirmInput = document.getElementById("password-confirm-input")?.value || "";
   if(confirmInput !== ADMIN_PASSWORD) { if(error) error.textContent=t("invalidAdmin"); return; } 
-  const customer = cachedCustomers.find(c=>String(c.id)===String(passwordCustomerId)); 
+  const customer = cachedCustomers.find(c=>String(c.id)===String(passwordCustomerId) || String(c._id)===String(passwordCustomerId)); 
   if(!customer) return closePasswordModal(); 
   document.getElementById("password-confirm-form")?.classList.add("hidden"); 
   if(document.getElementById("revealed-password-value")) document.getElementById("revealed-password-value").textContent = customer.password; 
