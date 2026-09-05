@@ -201,12 +201,11 @@ document.getElementById("new-deposit-form").addEventListener("submit", async e =
   const customerId = document.getElementById("deposit-customer").value;
   if(!customerId) return;
 
-  const depositData = {
-    customer_id: customerId,
-    amount: Number(document.getElementById("deposit-amount").value),
-    date: document.getElementById("deposit-date").value,
-    note: document.getElementById("deposit-note").value.trim()
-  };
+const depositData = {
+  serial: serial,
+  amount: amount,
+  memo: memo
+};
 
   try {
     await saveDepositToDB(depositData);
