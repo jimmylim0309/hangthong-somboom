@@ -284,16 +284,27 @@ document.getElementById("edit-customer-form")?.addEventListener("submit", async 
   }
 });
 
-// 핵심 처리 로직: 입금 처리 함수
+// [수정완료] 입금 처리 핵심 함수
 async function handleDepositSubmit(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
   }
 
-  // DOM 탐색
-  const selectEl = document.querySelector("#deposit-customer, #new-deposit-customer, #customer-select, select[name='customer']");
-  const customerId = selectEl ? selectEl.value : selectedCustomerIdForDeposit;
+  // 1. 현재 화면에 표시된 visible select 요소를 최우선 탐색
+  const allSelects = Array.from(document.querySelectorAll("#deposit-customer, #new-deposit-customer, #customer-select, select[name='customer']"));
+  const visibleSelect = allSelects.find(el => el.offsetParent !== null && !el.closest('.hidden'));
+
+  let customerId = visibleSelect ? visibleSelect.value : null;
+
+  // 2. 만약 찾지 못했으면 전역 선택 변수나 값이 있는 아무 select 요소 탐색
+  if (!customerId) {
+    customerId = selectedCustomerIdForDeposit;
+  }
+  if (!customerId) {
+    const filledSelect = allSelects.find(el => el.value !== "");
+    if (filledSelect) customerId = filledSelect.value;
+  }
 
   if (!customerId || customerId === "" || customerId === "undefined") {
     alert("입금할 고객을 선택해 주세요.");
@@ -314,6 +325,7 @@ async function handleDepositSubmit(e) {
     return;
   }
 
+  // 3. 입금 필드 탐색
   const amountInput = document.querySelector("#deposit-amount, #new-deposit-amount, input[name='amount']");
   const noteInput = document.querySelector("#deposit-note, #deposit-memo, #new-deposit-memo, input[name='memo']");
   const dateInput = document.querySelector("#deposit-date, #new-deposit-date, input[type='date']");
@@ -344,7 +356,7 @@ async function handleDepositSubmit(e) {
     await saveDepositToDB(depositData);
     
     selectedCustomerIdForDeposit = null;
-    const form = selectEl?.closest("form");
+    const form = visibleSelect?.closest("form") || document.querySelector("#new-deposit-form, #deposit-form");
     if (form) form.reset();
     
     if (dateInput) dateInput.value = today();
@@ -360,7 +372,13 @@ async function handleDepositSubmit(e) {
   }
 }
 
-// 이벤트 위임 처리: 클릭 및 서브밋 방지
+// 이벤트 위임 처리: 고객 선택 변경 감지 및 버튼 클릭/서브밋 감지
+document.addEventListener("change", function(e) {
+  if (e.target.matches("#deposit-customer, #new-deposit-customer, #customer-select, select[name='customer']")) {
+    selectedCustomerIdForDeposit = e.target.value;
+  }
+});
+
 document.addEventListener("click", function(e) {
   const target = e.target;
   if (target.matches("#save-deposit-btn, #new-deposit-form button[type='submit'], #deposit-form button[type='submit']") || target.closest("#save-deposit-btn")) {
@@ -463,12 +481,3 @@ async function renderDepositList(serial) {
 const initialDateEl = document.getElementById("deposit-date") || document.getElementById("new-deposit-date") || document.querySelector("input[type='date']");
 if (initialDateEl) initialDateEl.value = today();
 setLanguage(language);
-
-// 입금 폼 제출(Submit) 및 저장 버튼 이벤트 연결
-document.addEventListener("DOMContentLoaded", function () {
-  const depositForm = document.querySelector("#new-deposit-form");
-  
-  if (depositForm) {
-    depositForm.addEventListener("submit", handleDepositSubmit);
-  }
-});
