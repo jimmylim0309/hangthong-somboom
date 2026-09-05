@@ -35,13 +35,13 @@ exports.handler = async (event, context) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const body = JSON.parse(event.body || '{}');
 
-    // Supabase deposits 테이블 컬럼에 정확히 맞춘 객체 생성
+    // DB의 created_at 컬럼으로 매핑되도록 수정
     const payload = {
       customer_id: body.customer_id || body.customerId,
       serial: body.serial || '',
       amount: Number(body.amount),
       memo: body.memo || body.note || '',
-      date: body.date || body.created_at || new Date().toISOString().slice(0, 10)
+      created_at: body.date || body.created_at || new Date().toISOString()
     };
 
     // id가 명시되어 넘어온 경우에만 포함 (수정 작업 시 사용)
