@@ -5,7 +5,6 @@ exports.handler = async (event, context) => {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
-    // 환경 변수 검증
     if (!supabaseUrl || !supabaseKey) {
       return {
         statusCode: 500,
@@ -15,10 +14,10 @@ exports.handler = async (event, context) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // DB 조회
+    // 정렬(order) 구문을 제외하고 단순 전체 데이터 조회
     const { data, error } = await supabase
       .from('customers')
-      .select('*')
+      .select('*');
 
     if (error) {
       return {
@@ -29,13 +28,10 @@ exports.handler = async (event, context) => {
 
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     };
   } catch (err) {
-    // 502로 죽지 않고 500 에러와 함께 원인 메시지 반환
     return {
       statusCode: 500,
       body: JSON.stringify({ error: err.message }),
