@@ -140,7 +140,7 @@ async function renderAdmin() {
   
   const adminList = document.getElementById("admin-customer-list");
   if(adminList) {
-    adminList.innerHTML = customers.length ? bySerial.map(c=>{ 
+    adminList.innerHTML = customers.length ? bySerial.map(c=>{
       const total=totals(c); 
       const cId = c.id || c._id;
       return `<div class="customer-row"><div><p>${c.name}</p><small>${t("serial")} ${c.serial || t("unregistered")} · ${c.phone} · ${total.count}${t("times")} ${t("deposit")}</small><div class="customer-buttons"><button class="password-check" data-customer-id="${cId}">${t("passwordCheck")}</button></div></div><strong>${money(total.total)}</strong></div>`; 
@@ -161,7 +161,7 @@ function bindSelectChangeEvent() {
   });
 }
 
-function fillEditCustomer(customerId) { 
+function fillEditCustomer(customerId) {
   const customer=cachedCustomers.find(c=>String(c.id)===String(customerId) || String(c._id)===String(customerId)); 
   if(document.getElementById("edit-customer-id")) document.getElementById("edit-customer-id").value=customer ? (customer.id || customer._id) : ""; 
   if(document.getElementById("edit-serial")) document.getElementById("edit-serial").value=customer ? customer.serial || "" : ""; 
