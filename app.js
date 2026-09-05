@@ -202,7 +202,7 @@ document.getElementById("new-deposit-form").addEventListener("submit", async e =
   if(!customerId) return;
 
 const depositData = {
-  serial: serial,
+  customer_id: serial, // 또는 customerId
   amount: amount,
   memo: memo
 };
