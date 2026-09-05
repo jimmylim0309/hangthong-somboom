@@ -96,7 +96,7 @@ function downloadPdfFromJpegs(jpegs) {
   const encoder=new TextEncoder(), parts=[], offsets=[], addText=text=>parts.push(encoder.encode(text)), addBytes=bytes=>parts.push(bytes), length=()=>parts.reduce((sum,p)=>sum+p.length,0), addObject=(id,content)=>{ offsets[id]=length(); addText(`${id} 0 obj\n${content}\nendobj\n`); }, addImage=(id,jpeg)=>{ offsets[id]=length(); addText(`${id} 0 obj\n<< /Type /XObject /Subtype /Image /Width 1240 /Height 1754 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`); addBytes(jpeg); addText("\nendstream\nendobj\n"); };
   addText("%PDF-1.4\n%"); addBytes(new Uint8Array([255,255,255,255])); addText("\n"); const count=jpegs.length, firstPage=3, firstImage=firstPage+count*2; addObject(1,"<< /Type /Catalog /Pages 2 0 R >>"); addObject(2,`<< /Type /Pages /Kids [${Array.from({length:count},(_,i)=>`${firstPage+i*2} 0 R`).join(" ")}] /Count ${count} >>`); jpegs.forEach((jpeg,i)=>{const page=firstPage+i*2,image=firstImage+i,content=page+1,stream=`q\n595 0 0 842 0 0 cm\n/Im${i} Do\nQ\n`; addObject(page,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /Im${i} ${image} 0 R >> >> /Contents ${content} 0 R >>`); addObject(content,`<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}endstream`); addImage(image,jpeg); }); const xref=length(); addText(`xref\n0 ${offsets.length}\n0000000000 65535 f \n`); for(let i=1;i<offsets.length;i++) addText(`${String(offsets[i]).padStart(10,"0")} 00000 n \n`); addText(`trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`); const url=URL.createObjectURL(new Blob(parts,{type:"application/pdf"})), link=document.createElement("a"); link.href=url; link.download="Hangthong-Somboon-transfer-history.pdf"; link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-async function downloadCustomerPdf() { const customer=cachedCustomers.find(c=>String(c.id)===String(activeCustomerId)); if(!customer)return; await document.fonts.ready; const deposits=[...(customer.deposits||[])].sort((a,b)=>b.date.localeCompare(a.date)); const groups=deposits.length ? Array.from({length:Math.ceil(deposits.length/18)},(_,i)=>deposits.slice(i*18,i*18+18)) : [[]]; downloadPdfFromJpegs(groups.map((group,i)=>bytesFromDataUrl(reportCanvas(customer,group,i+1,groups.length).toDataURL("image/jpeg",.94)))); }
+async function downloadCustomerPdf() { const customer=cachedCustomers.find(c=>String(c.id)===String(activeCustomerId) || String(c._id)===String(activeCustomerId)); if(!customer)return; await document.fonts.ready; const deposits=[...(customer.deposits||[])].sort((a,b)=>b.date.localeCompare(a.date)); const groups=deposits.length ? Array.from({length:Math.ceil(deposits.length/18)},(_,i)=>deposits.slice(i*18,i*18+18)) : [[]]; downloadPdfFromJpegs(groups.map((group,i)=>bytesFromDataUrl(reportCanvas(customer,group,i+1,groups.length).toDataURL("image/jpeg",.94)))); }
 
 function show(id) { document.querySelectorAll(".screen").forEach(x => x.classList.add("hidden")); document.getElementById(id)?.classList.remove("hidden"); }
 function totals(customer) { const deposits = customer.deposits || []; return { total:deposits.reduce((sum,d) => sum + Number(d.amount),0), count:deposits.length, recent:[...deposits].sort((a,b)=>b.date.localeCompare(a.date))[0] }; }
@@ -104,7 +104,8 @@ function depositRow(d) { return `<div class="deposit-row"><div><p>${formatDate(d
 
 async function renderCustomer() {
   await fetchCustomersFromDB();
-  const customer = cachedCustomers.find(x => String(x.id) === String(activeCustomerId)); if (!customer) return show("customer-login");
+  const customer = cachedCustomers.find(x => String(x.id) === String(activeCustomerId) || String(x._id) === String(activeCustomerId)); 
+  if (!customer) return show("customer-login");
   const {total,count,recent} = totals(customer); 
   if(document.getElementById("customer-name")) document.getElementById("customer-name").textContent = customer.name; 
   if(document.getElementById("customer-total")) document.getElementById("customer-total").textContent = money(total); 
@@ -121,20 +122,24 @@ async function renderAdmin() {
   const customers = await fetchCustomersFromDB();
   const bySerial = [...customers].sort((a,b) => { if (!a.serial) return 1; if (!b.serial) return -1; return String(a.serial).localeCompare(String(b.serial), language, { numeric:true, sensitivity:"base" }); }); 
   
-  // ID 필드 명칭(_id, id) 안전 매핑 및 option 태그 생성
+  // ID 프로퍼티 명칭 호환성 처리 (_id 또는 id)
   const customerOptions = bySerial.map(x => {
-    const customerId = x.id || x._id || "";
-    return `<option value="${customerId}">[${x.serial || t("unregistered")}] ${x.name} · ${x.phone}</option>`;
-  }).join("");
+    const cId = x.id || x._id;
+    return `<option value="${cId}">[${x.serial || t("unregistered")}] ${x.name} · ${x.phone}</option>`;
+  }).join(""); 
 
-  const select = document.getElementById("deposit-customer"); 
+  const select = document.getElementById("deposit-customer") || document.getElementById("new-deposit-customer"); 
   if(select) select.innerHTML = `<option value="">${t("choose")}</option>` + customerOptions; 
   if(document.getElementById("edit-customer-select")) document.getElementById("edit-customer-select").innerHTML = `<option value="">${t("chooseEdit")}</option>` + customerOptions; 
   if(document.getElementById("admin-customer-count")) document.getElementById("admin-customer-count").textContent = `${customers.length}${t("people")}`;
   
   const adminList = document.getElementById("admin-customer-list");
   if(adminList) {
-    adminList.innerHTML = customers.length ? bySerial.map(c=>{ const total=totals(c); return `<div class="customer-row"><div><p>${c.name}</p><small>${t("serial")} ${c.serial || t("unregistered")} · ${c.phone} · ${total.count}${t("times")} ${t("deposit")}</small><div class="customer-buttons"><button class="password-check" data-customer-id="${c.id}">${t("passwordCheck")}</button></div></div><strong>${money(total.total)}</strong></div>`; }).join("") : `<p class="empty">${t("noCustomers")}</p>`; 
+    adminList.innerHTML = customers.length ? bySerial.map(c=>{ 
+      const total=totals(c); 
+      const cId = c.id || c._id;
+      return `<div class="customer-row"><div><p>${c.name}</p><small>${t("serial")} ${c.serial || t("unregistered")} · ${c.phone} · ${total.count}${t("times")} ${t("deposit")}</small><div class="customer-buttons"><button class="password-check" data-customer-id="${cId}">${t("passwordCheck")}</button></div></div><strong>${money(total.total)}</strong></div>`; 
+    }).join("") : `<p class="empty">${t("noCustomers")}</p>`; 
     document.querySelectorAll(".password-check").forEach(button => button.addEventListener("click", () => openPasswordModal(button.dataset.customerId)));
   }
   show("admin-dashboard");
@@ -275,30 +280,48 @@ document.getElementById("edit-customer-form")?.addEventListener("submit", async 
   }
 });
 
-// 신규 입금 기록 제출 (드롭다운 검증 강화 및 고객 매칭 보장)
+// 신규 입금 기록 제출 (선택값 검증 완벽 수정)
 document.getElementById("new-deposit-form")?.addEventListener("submit", async e => { 
   e.preventDefault(); 
   
-  const selectEl = document.getElementById("deposit-customer");
-  if (!selectEl) return;
+  // ID 명칭 분기에 대응하여 드롭다운 요소 탐색
+  const selectEl = document.getElementById("deposit-customer") || document.getElementById("new-deposit-customer");
+  
+  if (!selectEl) {
+    alert("고객 선택 목록 요소를 찾을 수 없습니다.");
+    return;
+  }
 
-  const selectedOption = selectEl.options[selectEl.selectedIndex];
-  const customerId = selectEl.value || (selectedOption ? selectedOption.value : "");
+  // 선택된 value를 다각도로 안전하게 추출
+  let customerId = selectEl.value;
+  if (!customerId && selectEl.selectedIndex >= 0) {
+    customerId = selectEl.options[selectEl.selectedIndex]?.value;
+  }
 
-  if (!customerId || customerId === "undefined" || selectEl.selectedIndex === 0) {
+  // 첫 번째 기본 옵션이거나 유효하지 않은 값일 때 예외 처리
+  if (!customerId || customerId === "undefined" || customerId === "" || selectEl.selectedIndex === 0) {
     alert("입금할 고객을 올바르게 선택해 주세요.");
     return;
   }
 
-  const customer = cachedCustomers.find(c => String(c.id) === String(customerId) || String(c._id) === String(customerId));
+  // 캐시된 고객 목록에서 유연하게 찾기 (id / _id 호환)
+  let customer = cachedCustomers.find(c => String(c.id) === String(customerId) || String(c._id) === String(customerId));
+
+  // 최신 DB 데이터 재조회 후 다시 검색
   if (!customer) {
-    alert("선택한 고객 정보를 찾을 수 없습니다. 페이지를 새로고침 후 다시 시도해 주세요.");
+    const freshCustomers = await fetchCustomersFromDB();
+    customer = freshCustomers.find(c => String(c.id) === String(customerId) || String(c._id) === String(customerId));
+  }
+
+  if (!customer) {
+    alert("선택한 고객 정보를 찾을 수 없습니다. 목록을 다시 불러옵니다.");
+    await renderAdmin();
     return;
   }
 
-  const amountInput = document.getElementById("deposit-amount");
-  const noteInput = document.getElementById("deposit-note") || document.getElementById("deposit-memo");
-  const dateInput = document.getElementById("deposit-date");
+  const amountInput = document.getElementById("deposit-amount") || document.getElementById("new-deposit-amount");
+  const noteInput = document.getElementById("deposit-note") || document.getElementById("deposit-memo") || document.getElementById("new-deposit-memo");
+  const dateInput = document.getElementById("deposit-date") || document.getElementById("new-deposit-date");
 
   const amount = amountInput ? Number(amountInput.value) : 0;
   const noteValue = noteInput ? noteInput.value.trim() : "";
@@ -321,8 +344,7 @@ document.getElementById("new-deposit-form")?.addEventListener("submit", async e 
     await saveDepositToDB(depositData);
     e.target.reset();
     
-    const dateEl = document.getElementById("deposit-date");
-    if (dateEl) dateEl.value = today();
+    if (dateInput) dateInput.value = today();
     
     document.getElementById("new-deposit-form")?.classList.add("hidden");
     await renderAdmin();
