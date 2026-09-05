@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 2.6.0
- Fix : Removed Admin Action Buttons (+고객 등록, +입금 기록, 고객 정보 수정)
+ Version 2.7.0
+ Change: Moved PDF Download Feature to Admin Dashboard Only
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
@@ -136,7 +136,7 @@ function setLanguage(next) {
 }
 
 /* ===========================================================
-   RENDER LOGIC & PDF DOWNLOAD
+   RENDER LOGIC & PDF DOWNLOAD (ADMIN ONLY)
 =========================================================== */
 
 function totals(customer) {
@@ -210,9 +210,10 @@ async function renderCustomer() {
   show("customer-dashboard");
 }
 
-function downloadDepositPDF() {
+// 관리자 전용 PDF 다운로드 함수
+function downloadDepositPDF(customerId) {
   const customer = cachedCustomers.find(c =>
-    getCustomerId(c) === String(activeCustomerId)
+    getCustomerId(c) === String(customerId)
   );
 
   if (!customer) {
@@ -365,8 +366,9 @@ async function renderAdmin() {
             </div>
             <strong>${money(info.total)}</strong>
           </div>
-          <div class="customer-buttons">
+          <div class="customer-buttons" style="display:flex; gap:6px; flex-wrap:wrap;">
             <button class="password-check" data-id="${cId}">비밀번호 확인</button>
+            <button class="download-pdf-admin-btn" data-id="${cId}" style="background-color:#d4af37; color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer;">PDF 다운로드</button>
             <button class="toggle-deposits-btn" data-target="deposits-${cId}">입금 내역 관리 (${info.count})</button>
           </div>
           <div id="deposits-${cId}" class="hidden" style="margin-top:8px; border-top:1px solid #eee; padding-top:8px;">
@@ -378,6 +380,10 @@ async function renderAdmin() {
 
     document.querySelectorAll(".password-check").forEach(button => {
       button.onclick = () => openPasswordModal(button.dataset.id);
+    });
+
+    document.querySelectorAll(".download-pdf-admin-btn").forEach(button => {
+      button.onclick = () => downloadDepositPDF(button.dataset.id);
     });
 
     document.querySelectorAll(".toggle-deposits-btn").forEach(button => {
@@ -435,8 +441,6 @@ function openPasswordModal(customerId) {
 =========================================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("download-pdf-btn")?.addEventListener("click", downloadDepositPDF);
-
   document.querySelectorAll("[data-view]").forEach(btn => {
     btn.addEventListener("click", () => {
       const targetView = btn.dataset.view;
