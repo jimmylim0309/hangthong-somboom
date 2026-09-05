@@ -329,22 +329,25 @@ async function renderAdmin(){
 
     }
 
-    /* -------- 고객 목록 -------- */
+/* -------- 고객 목록 -------- */
 
-    const list = document.getElementById("admin-customer-list");
+const list = document.getElementById("admin-customer-list");
 
-    list.innerHTML = "";
+if (!list) {
+    console.error("admin-customer-list 요소가 없습니다.");
+    return;
+}
 
-    sorted.forEach(customer=>{
+list.innerHTML = "";
 
-        const info = totals(customer);
+sorted.forEach(customer => {
 
-        list.innerHTML += `
+    const info = totals(customer);
 
+    list.innerHTML += `
         <div class="customer-row">
 
             <div>
-
                 <p>${customer.name}</p>
 
                 <small>
@@ -353,19 +356,26 @@ async function renderAdmin(){
                     입금 ${info.count}회
                 </small>
 
+                <div class="customer-buttons">
+                    <button
+                        class="password-check"
+                        data-id="${customer.id || customer._id}">
+                        비밀번호 확인
+                    </button>
+                </div>
+
             </div>
 
             <strong>${money(info.total)}</strong>
 
         </div>
+    `;
 
-        `;
+});
 
-    });
-
-    show("admin-dashboard");
-
-}
+document.querySelectorAll(".password-check").forEach(button => {
+    button.onclick = () => openPasswordModal(button.dataset.id);
+});
 
 /* ===========================================================
    LOGIN
