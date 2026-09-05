@@ -213,13 +213,13 @@ document.getElementById("customer-login-form")?.addEventListener("submit", async
   renderCustomer(); 
 });
 
-document.getElementById("admin-login-form")?.addEventListener("submit", e => { 
+document.getElementById("admin-login-form")?.addEventListener("submit", async e => { 
   e.preventDefault(); 
   const error = document.getElementById("admin-login-error"); 
   const adminPassVal = document.getElementById("admin-password")?.value || "";
   if(adminPassVal !== ADMIN_PASSWORD) { if(error) error.textContent=t("invalidAdmin"); return; } 
   if(error) error.textContent=""; 
-  renderAdmin(); 
+  await renderAdmin(); 
 });
 
 if(document.getElementById("customer-logout")) document.getElementById("customer-logout").onclick = () => { activeCustomerId=null; document.getElementById("customer-login-form")?.reset(); show("customer-login"); }; 
