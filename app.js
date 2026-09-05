@@ -371,13 +371,31 @@ async function handleDepositSubmit(e) {
     document.getElementById("new-deposit-form")?.classList.add("hidden");
     document.getElementById("deposit-form")?.classList.add("hidden");
     
-    await renderAdmin();
-    alert("입금 내역이 성공적으로 저장되었습니다.");
-  } catch(err) {
-    console.error("Deposit Save Error:", err);
-    alert(`입금 내역 저장 실패: ${err.message}`);
+    // 핵심 처리 로직: 입금 처리 함수
+async function handleDepositSubmit(e) {
+  if (e) e.preventDefault();
+
+  // 1순위: change 이벤트로 저장된 전역 변수 값 확인
+  let customerId = selectedCustomerIdForDeposit;
+
+  // 2순위: 변수에 값이 없을 경우 DOM 탐색 백업
+  const selectEl = document.querySelector("#deposit-customer, #new-deposit-customer, #customer-select, select[name='customer']");
+  
+  if (!customerId && selectEl) {
+    customerId = selectEl.value;
+    if (!customerId || customerId === "undefined") {
+      if (selectEl.selectedIndex >= 0) {
+        customerId = selectEl.options[selectEl.selectedIndex]?.value;
+      }
+    }
   }
-}
+
+  // 예외 검증 (고객 선택 안 됨 또는 기본 옵션 선택 상태)
+  const isDefaultOption = selectEl && selectEl.selectedIndex === 0;
+  if (!customerId || customerId === "" || customerId === "undefined" || isDefaultOption) {
+    alert("입금할 고객을 올바르게 선택해 주세요.");
+    return;
+  }
 
   // 최신 DB 및 캐시 조회
   let customers = cachedCustomers.length ? cachedCustomers : await fetchCustomersFromDB();
@@ -394,6 +412,47 @@ async function handleDepositSubmit(e) {
     return;
   }
 
+  const amountInput = document.getElementById("deposit-amount") || document.getElementById("new-deposit-amount") || document.querySelector("input[name='amount']");
+  const noteInput = document.getElementById("deposit-note") || document.getElementById("deposit-memo") || document.getElementById("new-deposit-memo") || document.querySelector("input[name='memo']");
+  const dateInput = document.getElementById("deposit-date") || document.getElementById("new-deposit-date") || document.querySelector("input[type='date']");
+
+  const amount = amountInput ? Number(amountInput.value) : 0;
+  const noteValue = noteInput ? noteInput.value.trim() : "";
+  const dateValue = dateInput ? dateInput.value : today();
+
+  const targetId = customer.id || customer._id;
+
+  const depositData = {
+    customer_id: targetId,
+    customerId: targetId,
+    serial: customer.serial || "",
+    amount: amount,
+    memo: noteValue,
+    note: noteValue,
+    date: dateValue,
+    created_at: dateValue
+  };
+
+  try {
+    await saveDepositToDB(depositData);
+    
+    // 저장 후 전역 선택 값 및 폼 초기화
+    selectedCustomerIdForDeposit = null;
+    const targetForm = e?.target || document.querySelector("#deposit-form, #new-deposit-form");
+    if (targetForm && typeof targetForm.reset === 'function') targetForm.reset();
+    
+    if (dateInput) dateInput.value = today();
+    
+    document.getElementById("new-deposit-form")?.classList.add("hidden");
+    document.getElementById("deposit-form")?.classList.add("hidden");
+    
+    await renderAdmin();
+    alert("입금 내역이 성공적으로 저장되었습니다.");
+  } catch(err) {
+    console.error("Deposit Save Error:", err);
+    alert(`입금 내역 저장 실패: ${err.message}`);
+  }
+}
   const amountInput = document.getElementById("deposit-amount") || document.getElementById("new-deposit-amount") || document.querySelector("input[name='amount']");
   const noteInput = document.getElementById("deposit-note") || document.getElementById("deposit-memo") || document.getElementById("new-deposit-memo") || document.querySelector("input[name='memo']");
   const dateInput = document.getElementById("deposit-date") || document.getElementById("new-deposit-date") || document.querySelector("input[type='date']");
