@@ -271,32 +271,36 @@ document.getElementById("new-deposit-form")?.addEventListener("submit", async e 
   const customer = cachedCustomers.find(c => c.id === customerId);
   const serial = customer ? customer.serial : "";
 
-  const amountInput = document.getElementById("deposit-amount") || document.getElementById("new-deposit-amount");
-  const memoInput = document.getElementById("deposit-memo") || document.getElementById("new-deposit-memo");
-  const dateInput = document.getElementById("deposit-date") || document.getElementById("new-deposit-date");
+  // HTML 요소 ID(deposit-amount, deposit-date, deposit-note) 정확히 참조
+  const amountInput = document.getElementById("deposit-amount");
+  const noteInput = document.getElementById("deposit-note") || document.getElementById("deposit-memo");
+  const dateInput = document.getElementById("deposit-date");
 
   const amount = amountInput ? Number(amountInput.value) : 0;
-  const memo = memoInput ? memoInput.value : "";
+  const noteValue = noteInput ? noteInput.value : "";
   const date = dateInput ? dateInput.value : today();
 
   const depositData = {
     customer_id: customerId,
+    customerId: customerId,
     serial: serial,
     amount: amount,
-    memo: memo,
+    memo: noteValue,
+    note: noteValue,
     date: date
   };
 
   try {
     await saveDepositToDB(depositData);
     e.target.reset();
-    const dateEl = document.getElementById("deposit-date") || document.getElementById("new-deposit-date");
+    const dateEl = document.getElementById("deposit-date");
     if(dateEl) dateEl.value = today();
     document.getElementById("new-deposit-form")?.classList.add("hidden");
     await renderAdmin();
+    alert("입금 내역이 성공적으로 저장되었습니다.");
   } catch(err) {
     console.error(err);
-    alert('입금 내역 저장에 실패했습니다.');
+    alert('입금 내역 저장에 실패했습니다. (콘솔 데이터 확인 필요)');
   }
 });
 
