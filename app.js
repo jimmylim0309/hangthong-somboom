@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 2.2
- Fix : Admin Login Navigation & Event Safeguard
+ Version 2.3
+ Fix : HTML ID Mapping & Dynamic Screen Navigation
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
@@ -12,60 +12,12 @@ let cachedCustomers = [];
 let language = localStorage.getItem("hangthong-language") || "ko";
 
 /* ===========================================================
-   LANGUAGE
-=========================================================== */
-
-const translations = {
-  ko: {
-    adminLogin: "관리자",
-    loginTitle: "나의 금 적립금을 확인하세요.",
-    phone: "전화번호",
-    password: "비밀번호",
-    viewSavings: "내 적립금 보기",
-    logout: "로그아웃",
-    customerName: "고객 이름",
-    deposit: "입금",
-    depositAmount: "입금 금액",
-    depositDate: "입금 날짜",
-    memo: "메모",
-    choose: "고객을 선택하세요",
-    totalSavings: "총 적립금",
-    depositHistory: "입금 내역",
-    saveDeposit: "입금 내역 저장",
-    invalidAdmin: "관리자 비밀번호가 올바르지 않습니다.",
-    invalidLogin: "전화번호 또는 비밀번호를 확인해주세요."
-  },
-
-  th: {
-    adminLogin: "ผู้ดูแล",
-    loginTitle: "ตรวจสอบยอดสะสมทอง",
-    phone: "หมายเลขโทรศัพท์",
-    password: "รหัสผ่าน",
-    viewSavings: "ดูยอดสะสม",
-    logout: "ออกจากระบบ",
-    customerName: "ชื่อลูกค้า",
-    deposit: "ฝากเงิน",
-    depositAmount: "จำนวนเงินฝาก",
-    depositDate: "วันที่ฝาก",
-    memo: "หมายเหตุ",
-    choose: "เลือกลูกค้า",
-    totalSavings: "ยอดสะสมทั้งหมด",
-    depositHistory: "ประวัติการฝาก",
-    saveDeposit: "บันทึกการฝาก",
-    invalidAdmin: "รหัสผ่านผู้ดูแลไม่ถูกต้อง",
-    invalidLogin: "เบอร์โทรศัพท์หรือรหัสผ่านไม่ถูกต้อง"
-  }
-};
-
-const t = key => translations[language][key] || key;
-
-/* ===========================================================
-   COMMON
+   COMMON UTILS
 =========================================================== */
 
 const phone = value => (value || "").replace(/[^0-9]/g, "");
 
-const today = () => new Date().toISOString().slice(0,10);
+const today = () => new Date().toISOString().slice(0, 10);
 
 const money = value =>
   new Intl.NumberFormat(
@@ -78,7 +30,7 @@ const formatDate = value => {
   try {
     return new Intl.DateTimeFormat(
       language === "th" ? "th-TH" : "ko-KR",
-      { year:"numeric", month:"long", day:"numeric"}
+      { year: "numeric", month: "long", day: "numeric" }
     ).format(new Date(value));
   } catch (e) {
     return value;
@@ -89,87 +41,82 @@ const formatDate = value => {
    SUPABASE API
 =========================================================== */
 
-async function fetchCustomersFromDB(){
-  try{
+async function fetchCustomersFromDB() {
+  try {
     const res = await fetch("/.netlify/functions/get-customers");
-    if(!res.ok) throw new Error("고객 조회 실패");
+    if (!res.ok) throw new Error("고객 조회 실패");
     cachedCustomers = await res.json();
     return cachedCustomers;
-  }catch(err){
+  } catch (err) {
     console.error("fetchCustomersFromDB Error:", err);
     return [];
   }
 }
 
-async function saveCustomerToDB(customer){
-  const res = await fetch("/.netlify/functions/save-customer",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify(customer)
+async function saveCustomerToDB(customer) {
+  const res = await fetch("/.netlify/functions/save-customer", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(customer)
   });
   const result = await res.json();
-  if(!res.ok){
+  if (!res.ok) {
     throw new Error(result.error || "고객 저장 실패");
   }
   return result;
 }
 
-async function saveDepositToDB(deposit){
-  const res = await fetch("/.netlify/functions/save-deposit",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify(deposit)
+async function saveDepositToDB(deposit) {
+  const res = await fetch("/.netlify/functions/save-deposit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(deposit)
   });
   const result = await res.json();
-  if(!res.ok){
+  if (!res.ok) {
     throw new Error(result.error || "입금 저장 실패");
   }
   return result;
 }
 
 /* ===========================================================
-   SCREEN & LANGUAGE CONTROL
+   SCREEN & LANGUAGE NAVIGATION
 =========================================================== */
 
-function setLanguage(next){
-  language = next;
-  localStorage.setItem("hangthong-language", language);
-  document.documentElement.lang = language;
-  document.querySelectorAll("[data-language]").forEach(btn=>{
-    btn.classList.toggle("active", btn.dataset.language===language);
-  });
-  if(activeCustomerId){
-    renderCustomer();
-  }
-}
-
-function show(id){
-  console.log("화면 전환 시도 ->", id);
-  const screens = document.querySelectorAll(".screen");
-  if (screens.length === 0) {
-    console.warn("'.screen' 클래스를 가진 요소를 찾을 수 없습니다.");
-  }
-  screens.forEach(screen => {
+function show(id) {
+  console.log("화면 전환 ->", id);
+  document.querySelectorAll(".screen").forEach(screen => {
     screen.classList.add("hidden");
   });
 
   const target = document.getElementById(id);
   if (target) {
     target.classList.remove("hidden");
-    console.log("화면 전환 성공 ->", id);
   } else {
     console.error(`ID가 '${id}'인 화면 요소를 찾을 수 없습니다.`);
   }
 }
 
+function setLanguage(next) {
+  language = next;
+  localStorage.setItem("hangthong-language", language);
+  document.documentElement.lang = language;
+  document.querySelectorAll(".language-button").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.language === language);
+  });
+  if (activeCustomerId) {
+    renderCustomer();
+  }
+}
+
 /* ===========================================================
-   CUSTOMER / ADMIN RENDER
+   RENDER LOGIC
 =========================================================== */
 
-function totals(customer){
+function totals(customer) {
   const deposits = customer.deposits || [];
-  const total = deposits.reduce((sum,d)=>sum+Number(d.amount || 0), 0);
-  const recent = [...deposits].sort((a,b)=>(b.date||"").localeCompare(a.date||""))[0];
+  const total = deposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+  const recent = [...deposits].sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
   return {
     total,
     count: deposits.length,
@@ -177,14 +124,14 @@ function totals(customer){
   };
 }
 
-async function renderCustomer(){
+async function renderCustomer() {
   await fetchCustomersFromDB();
-  const customer = cachedCustomers.find(c=>
-    String(c.id)===String(activeCustomerId) ||
-    String(c._id)===String(activeCustomerId)
+  const customer = cachedCustomers.find(c =>
+    String(c.id) === String(activeCustomerId) ||
+    String(c._id) === String(activeCustomerId)
   );
 
-  if(!customer){
+  if (!customer) {
     show("customer-login");
     return;
   }
@@ -196,49 +143,49 @@ async function renderCustomer(){
   const countEl = document.getElementById("customer-count");
   const recentEl = document.getElementById("customer-recent");
 
-  if(nameEl) nameEl.textContent = customer.name;
-  if(totalEl) totalEl.textContent = money(info.total);
-  if(countEl) countEl.textContent = info.count + "회";
-  if(recentEl) recentEl.textContent = info.recent ? formatDate(info.recent.date) : "-";
+  if (nameEl) nameEl.textContent = customer.name;
+  if (totalEl) totalEl.textContent = money(info.total);
+  if (countEl) countEl.textContent = info.count + "회";
+  if (recentEl) recentEl.textContent = info.recent ? formatDate(info.recent.date) : "-";
 
   const list = document.getElementById("customer-deposit-list");
-  if(list) {
+  if (list) {
     list.innerHTML = "";
-    if(info.count===0){
+    if (info.count === 0) {
       list.innerHTML = "<p class='empty'>입금 내역이 없습니다.</p>";
-    }else{
+    } else {
       [...customer.deposits]
-      .sort((a,b)=>(b.date||"").localeCompare(a.date||""))
-      .forEach(d=>{
-        list.innerHTML += `
-          <div class="deposit-row">
-            <div>
-              <p>${formatDate(d.date)}</p>
-              <small>${d.memo || d.note || "-"}</small>
+        .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+        .forEach(d => {
+          list.innerHTML += `
+            <div class="deposit-row">
+              <div>
+                <p>${formatDate(d.date)}</p>
+                <small>${d.memo || d.note || "-"}</small>
+              </div>
+              <strong>+${money(d.amount)}</strong>
             </div>
-            <strong>+${money(d.amount)}</strong>
-          </div>
-        `;
-      });
+          `;
+        });
     }
   }
 
   show("customer-dashboard");
 }
 
-async function renderAdmin(){
-  console.log("renderAdmin() 실행 시작");
+async function renderAdmin() {
+  console.log("관리자 데이터 렌더링 중...");
   const customers = await fetchCustomersFromDB();
 
-  const sorted = [...customers].sort((a,b)=>
-    String(a.serial || "").localeCompare(String(b.serial || ""),"ko",{numeric:true})
+  const sorted = [...customers].sort((a, b) =>
+    String(a.serial || "").localeCompare(String(b.serial || ""), "ko", { numeric: true })
   );
 
   const countEl = document.getElementById("admin-customer-count");
-  if(countEl) countEl.textContent = customers.length + "명";
+  if (countEl) countEl.textContent = customers.length + "명";
 
-  /* 고객 Select 박스 갱신 */
-  const options = sorted.map(customer=>{
+  /* index.html의 ID에 맞춘 Select 박스 바인딩 */
+  const options = sorted.map(customer => {
     const id = customer.id || customer._id;
     return `
       <option value="${id}">
@@ -247,17 +194,17 @@ async function renderAdmin(){
     `;
   }).join("");
 
-  const depositSelect = document.getElementById("new-deposit-customer");
-  if(depositSelect){
+  const depositSelect = document.getElementById("deposit-customer");
+  if (depositSelect) {
     depositSelect.innerHTML = `<option value="">고객을 선택하세요</option>` + options;
   }
 
   const editSelect = document.getElementById("edit-customer-select");
-  if(editSelect){
+  if (editSelect) {
     editSelect.innerHTML = `<option value="">수정할 고객 선택</option>` + options;
   }
 
-  /* 고객 목록 렌더링 */
+  /* 고객 목록 표시 */
   const list = document.getElementById("admin-customer-list");
   if (list) {
     list.innerHTML = "";
@@ -288,141 +235,32 @@ async function renderAdmin(){
     });
   }
 
-  // 관리자 대시보드로 화면 전환
   show("admin-dashboard");
 }
 
 /* ===========================================================
-   LOGIN HANDLERS
+   MODAL LOGIC
 =========================================================== */
 
-async function handleAdminLogin(e) {
-  if (e) e.preventDefault();
-  console.log("관리자 로그인 시도 중...");
-
-  const passInput = document.getElementById("admin-password");
-  const inputPass = passInput ? passInput.value : "";
-
-  if (inputPass !== ADMIN_PASSWORD) {
-    alert("관리자 비밀번호가 올바르지 않습니다.");
-    return;
-  }
-
-  console.log("관리자 비밀번호 일치. 관리자 화면으로 이동합니다.");
-  await renderAdmin();
+function closePasswordModal() {
+  passwordCustomerId = null;
+  document.getElementById("password-modal")?.classList.add("hidden");
 }
 
-async function handleCustomerLogin(e) {
-  if (e) e.preventDefault();
-
-  const phoneInput = document.getElementById("customer-phone");
-  const passInput = document.getElementById("customer-password");
-
-  const customers = await fetchCustomersFromDB();
-  const found = customers.find(customer=>
-    customer.phone === phone(phoneInput ? phoneInput.value : "") &&
-    customer.password === (passInput ? passInput.value : "")
-  );
-
-  if(!found){
-    alert("전화번호 또는 비밀번호를 확인하세요.");
-    return;
-  }
-
-  activeCustomerId = found.id || found._id;
-  renderCustomer();
-}
-
-/* ===========================================================
-   DEPOSIT HANDLER
-=========================================================== */
-
-async function handleDepositSubmit(e) {
-  if(e) e.preventDefault();
-
-  const customerSelect = document.getElementById("new-deposit-customer");
-  if (!customerSelect) {
-    alert("고객 선택창을 찾을 수 없습니다.");
-    return;
-  }
-
-  const customerId = customerSelect.value;
-  if (!customerId) {
-    alert("입금할 고객을 선택하세요.");
-    customerSelect.focus();
-    return;
-  }
-
-  const customers = await fetchCustomersFromDB();
-  const customer = customers.find(c =>
+function openPasswordModal(customerId) {
+  passwordCustomerId = customerId;
+  const customer = cachedCustomers.find(c =>
     String(c.id) === String(customerId) ||
     String(c._id) === String(customerId)
   );
 
-  if (!customer) {
-    alert("선택한 고객 정보를 찾을 수 없습니다.");
-    return;
-  }
-
-  const amountInput = document.getElementById("new-deposit-amount");
-  const memoInput = document.getElementById("new-deposit-memo");
-  const dateInput = document.getElementById("new-deposit-date");
-
-  const amount = Number(amountInput ? amountInput.value : 0);
-  if (!amount || amount <= 0) {
-    alert("입금 금액을 입력하세요.");
-    if(amountInput) amountInput.focus();
-    return;
-  }
-
-  const depositData = {
-    customer_id: customer.id || customer._id,
-    serial: customer.serial || "",
-    amount: amount,
-    memo: (memoInput ? memoInput.value : "").trim(),
-    note: (memoInput ? memoInput.value : "").trim(),
-    date: (dateInput ? dateInput.value : "") || today()
-  };
-
-  try {
-    await saveDepositToDB(depositData);
-    alert("입금 내역이 저장되었습니다.");
-
-    const form = document.getElementById("new-deposit-form");
-    if(form) form.reset();
-    if(dateInput) dateInput.value = today();
-
-    await renderAdmin();
-  } catch (err) {
-    console.error("Deposit Save Error:", err);
-    alert("입금 저장 실패\n\n" + err.message);
-  }
-}
-
-/* ===========================================================
-   PASSWORD MODAL
-=========================================================== */
-
-function closePasswordModal(){
-  passwordCustomerId = null;
-  const modal = document.getElementById("password-modal");
-  if(modal) modal.classList.add("hidden");
-}
-
-function openPasswordModal(customerId){
-  passwordCustomerId = customerId;
-  const customer = cachedCustomers.find(c =>
-    String(c.id)===String(customerId) ||
-    String(c._id)===String(customerId)
-  );
-
   const titleEl = document.getElementById("password-modal-title");
-  if(titleEl) titleEl.textContent = `${customer ? customer.name : ''} 비밀번호 확인`;
+  if (titleEl) titleEl.textContent = `${customer ? customer.name : ''} 비밀번호 확인`;
 
   const inputEl = document.getElementById("password-confirm-input");
   const errEl = document.getElementById("password-confirm-error");
-  if(inputEl) inputEl.value = "";
-  if(errEl) errEl.textContent = "";
+  if (inputEl) inputEl.value = "";
+  if (errEl) errEl.textContent = "";
 
   document.getElementById("revealed-password")?.classList.add("hidden");
   document.getElementById("password-confirm-form")?.classList.remove("hidden");
@@ -430,115 +268,188 @@ function openPasswordModal(customerId){
 }
 
 /* ===========================================================
-   DOM READY & EVENT BINDING
+   EVENT BINDING (INIT)
 =========================================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
-  // 관리자 로그인 이벤트 연동
-  const adminForm = document.getElementById("admin-login-form");
-  if (adminForm) {
-    adminForm.addEventListener("submit", handleAdminLogin);
-  }
+  /* 1. data-view 버튼을 통한 화면 전환 (관리자 버튼, 뒤로가기 버튼 등) */
+  document.querySelectorAll("[data-view]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const targetView = btn.dataset.view;
+      show(targetView);
+    });
+  });
 
-  // 고객 로그인 이벤트 연동
-  const customerForm = document.getElementById("customer-login-form");
-  if (customerForm) {
-    customerForm.addEventListener("submit", handleCustomerLogin);
-  }
-
-  // 신규 고객 등록
-  const newCustomerForm = document.getElementById("new-customer-form");
-  if (newCustomerForm) {
-    newCustomerForm.addEventListener("submit", async e => {
-      e.preventDefault();
-      const customers = await fetchCustomersFromDB();
-      const serial = (document.getElementById("new-serial")?.value || "").trim();
-      const phoneNumber = phone(document.getElementById("new-phone")?.value || "");
-
-      if(customers.some(c=>c.phone===phoneNumber)){
-        alert("이미 등록된 전화번호입니다.");
-        return;
+  /* 2. 관리자 대시보드 내 서브 패널 토글 (+ 고객 등록, + 입금 기록 등) */
+  document.querySelectorAll("[data-panel]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const panelId = btn.dataset.panel;
+      const targetPanel = document.getElementById(panelId);
+      if (targetPanel) {
+        targetPanel.classList.toggle("hidden");
       }
+    });
+  });
 
-      if(serial && customers.some(c=>c.serial===serial)){
-        alert("이미 등록된 시리얼번호입니다.");
-        return;
-      }
+  /* 3. 언어 변경 버튼 */
+  document.querySelectorAll(".language-button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      setLanguage(btn.dataset.language);
+    });
+  });
 
-      await saveCustomerToDB({
-        serial,
-        name: (document.getElementById("new-name")?.value || "").trim(),
-        phone: phoneNumber,
-        address: (document.getElementById("new-address")?.value || "").trim(),
-        password: document.getElementById("new-password")?.value || ""
+  /* 4. 고객 로그인 제출 */
+  document.getElementById("customer-login-form")?.addEventListener("submit", async e => {
+    e.preventDefault();
+    const phoneInput = document.getElementById("customer-phone");
+    const passInput = document.getElementById("customer-password");
+
+    const customers = await fetchCustomersFromDB();
+    const found = customers.find(c =>
+      c.phone === phone(phoneInput?.value) &&
+      c.password === passInput?.value
+    );
+
+    if (!found) {
+      const errEl = document.getElementById("customer-login-error");
+      if (errEl) errEl.textContent = "전화번호 또는 비밀번호를 확인해주세요.";
+      return;
+    }
+
+    activeCustomerId = found.id || found._id;
+    renderCustomer();
+  });
+
+  /* 5. 관리자 로그인 제출 */
+  document.getElementById("admin-login-form")?.addEventListener("submit", async e => {
+    e.preventDefault();
+    const passInput = document.getElementById("admin-password");
+
+    if (passInput?.value !== ADMIN_PASSWORD) {
+      const errEl = document.getElementById("admin-login-error");
+      if (errEl) errEl.textContent = "관리자 비밀번호가 올바르지 않습니다.";
+      return;
+    }
+
+    await renderAdmin();
+  });
+
+  /* 6. 신규 고객 등록 제출 */
+  document.getElementById("new-customer-form")?.addEventListener("submit", async e => {
+    e.preventDefault();
+    const customers = await fetchCustomersFromDB();
+    const serial = (document.getElementById("new-serial")?.value || "").trim();
+    const phoneNumber = phone(document.getElementById("new-phone")?.value);
+
+    if (customers.some(c => c.phone === phoneNumber)) {
+      alert("이미 등록된 전화번호입니다.");
+      return;
+    }
+
+    if (serial && customers.some(c => c.serial === serial)) {
+      alert("이미 등록된 시리얼번호입니다.");
+      return;
+    }
+
+    await saveCustomerToDB({
+      serial,
+      name: (document.getElementById("new-name")?.value || "").trim(),
+      phone: phoneNumber,
+      address: (document.getElementById("new-address")?.value || "").trim(),
+      password: document.getElementById("new-password")?.value || ""
+    });
+
+    alert("고객 등록 완료");
+    e.target.reset();
+    document.getElementById("new-customer-form")?.classList.add("hidden");
+    await renderAdmin();
+  });
+
+  /* 7. 입금 기록 저장 제출 (index.html ID 기준) */
+  document.getElementById("new-deposit-form")?.addEventListener("submit", async e => {
+    e.preventDefault();
+
+    const customerSelect = document.getElementById("deposit-customer");
+    const customerId = customerSelect?.value;
+
+    if (!customerId) {
+      alert("입금할 고객을 선택하세요.");
+      return;
+    }
+
+    const amountInput = document.getElementById("deposit-amount");
+    const dateInput = document.getElementById("deposit-date");
+    const noteInput = document.getElementById("deposit-note");
+
+    const amount = Number(amountInput?.value || 0);
+    if (!amount || amount <= 0) {
+      alert("입금 금액을 입력하세요.");
+      return;
+    }
+
+    const customers = await fetchCustomersFromDB();
+    const customer = customers.find(c => String(c.id || c._id) === String(customerId));
+
+    try {
+      await saveDepositToDB({
+        customer_id: customerId,
+        serial: customer?.serial || "",
+        amount: amount,
+        memo: (noteInput?.value || "").trim(),
+        note: (noteInput?.value || "").trim(),
+        date: dateInput?.value || today()
       });
 
-      alert("고객 등록 완료");
+      alert("입금 내역이 저장되었습니다.");
       e.target.reset();
+      if (dateInput) dateInput.value = today();
+      document.getElementById("new-deposit-form")?.classList.add("hidden");
       await renderAdmin();
-    });
-  }
+    } catch (err) {
+      alert("입금 저장 실패: " + err.message);
+    }
+  });
 
-  // 입금 폼 연동
-  const depositForm = document.getElementById("new-deposit-form");
-  if (depositForm) {
-    depositForm.addEventListener("submit", handleDepositSubmit);
-  }
+  /* 8. 관리자 비밀번호 확인 모달 제출 */
+  document.getElementById("password-confirm-form")?.addEventListener("submit", e => {
+    e.preventDefault();
+    const passInput = document.getElementById("password-confirm-input");
+    const errEl = document.getElementById("password-confirm-error");
 
-  // 비밀번호 확인 폼
-  const passConfirmForm = document.getElementById("password-confirm-form");
-  if (passConfirmForm) {
-    passConfirmForm.addEventListener("submit", e => {
-      e.preventDefault();
-      const passInput = document.getElementById("password-confirm-input");
-      const errEl = document.getElementById("password-confirm-error");
+    if (passInput?.value !== ADMIN_PASSWORD) {
+      if (errEl) errEl.textContent = "관리자 비밀번호가 올바르지 않습니다.";
+      return;
+    }
 
-      if ((passInput ? passInput.value : "") !== ADMIN_PASSWORD) {
-        if (errEl) errEl.textContent = "관리자 비밀번호가 올바르지 않습니다.";
-        return;
-      }
+    const customer = cachedCustomers.find(c =>
+      String(c.id || c._id) === String(passwordCustomerId)
+    );
 
-      const customer = cachedCustomers.find(c =>
-        String(c.id)===String(passwordCustomerId) ||
-        String(c._id)===String(passwordCustomerId)
-      );
+    document.getElementById("password-confirm-form")?.classList.add("hidden");
+    const revVal = document.getElementById("revealed-password-value");
+    if (revVal) revVal.textContent = customer ? customer.password : "";
+    document.getElementById("revealed-password")?.classList.remove("hidden");
+  });
 
-      passConfirmForm.classList.add("hidden");
-      const revVal = document.getElementById("revealed-password-value");
-      if(revVal) revVal.textContent = customer ? customer.password : "";
-      document.getElementById("revealed-password")?.classList.remove("hidden");
-    });
-  }
+  /* 9. 기타 버튼 이벤트 연동 (로그아웃, 모달 닫기 등) */
+  document.getElementById("customer-logout")?.addEventListener("click", () => {
+    activeCustomerId = null;
+    document.getElementById("customer-login-form")?.reset();
+    show("customer-login");
+  });
 
-  // 로그아웃 버튼
-  const customerLogoutBtn = document.getElementById("customer-logout");
-  if (customerLogoutBtn) {
-    customerLogoutBtn.onclick = () => {
-      activeCustomerId = null;
-      document.getElementById("customer-login-form")?.reset();
-      show("customer-login");
-    };
-  }
+  document.getElementById("admin-logout")?.addEventListener("click", () => {
+    document.getElementById("admin-login-form")?.reset();
+    show("customer-login");
+  });
 
-  const adminLogoutBtn = document.getElementById("admin-logout");
-  if (adminLogoutBtn) {
-    adminLogoutBtn.onclick = () => {
-      document.getElementById("admin-login-form")?.reset();
-      show("customer-login");
-    };
-  }
+  document.getElementById("close-password-modal")?.addEventListener("click", closePasswordModal);
 
-  const closePassModalBtn = document.getElementById("close-password-modal");
-  if (closePassModalBtn) {
-    closePassModalBtn.onclick = closePasswordModal;
-  }
+  // 기본 입금 날짜 오늘로 설정
+  const depositDate = document.getElementById("deposit-date");
+  if (depositDate) depositDate.value = today();
 
-  // 날짜 기본값 설정
-  const dateInput = document.getElementById("new-deposit-date");
-  if (dateInput) {
-    dateInput.value = today();
-  }
-
+  // 초기화 실행
   setLanguage(language);
   fetchCustomersFromDB();
 });
