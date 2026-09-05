@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 2.4.1
- Fix : Event Listener Scope & Customer Target ID Mismatch Fix
+ Version 2.4.3
+ Fix : Add Customer Deposit History PDF Download Logic
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
@@ -37,10 +37,14 @@ const formatDate = value => {
   }
 };
 
-// 고객 고유 ID 안전하게 추출하는 헬퍼 함수
 const getCustomerId = customer => {
   if (!customer) return "";
   return String(customer.id ?? customer._id ?? customer.serial ?? "");
+};
+
+const getDepositId = deposit => {
+  if (!deposit) return "";
+  return String(deposit.id ?? deposit._id ?? deposit.deposit_id ?? "");
 };
 
 /* ===========================================================
@@ -86,6 +90,9 @@ async function saveDepositToDB(deposit) {
 }
 
 async function deleteDepositFromDB(depositId) {
+  if (!depositId || depositId === "undefined" || depositId === "null") {
+    throw new Error("유효하지 않은 입금 ID입니다.");
+  }
   const res = await fetch("/.netlify/functions/delete-deposit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -129,7 +136,7 @@ function setLanguage(next) {
 }
 
 /* ===========================================================
-   RENDER LOGIC
+   RENDER LOGIC & PDF DOWNLOAD
 =========================================================== */
 
 function totals(customer) {
@@ -203,6 +210,91 @@ async function renderCustomer() {
   show("customer-dashboard");
 }
 
+/* PDF 다운로드 로직 */
+function downloadDepositPDF() {
+  const customer = cachedCustomers.find(c =>
+    getCustomerId(c) === String(activeCustomerId)
+  );
+
+  if (!customer) {
+    alert("고객 정보를 찾을 수 없습니다.");
+    return;
+  }
+
+  if (typeof html2pdf === "undefined") {
+    alert("PDF 변환 라이브러리(html2pdf)가 로드되지 않았습니다. index.html을 확인하세요.");
+    return;
+  }
+
+  const info = totals(customer);
+  const sortedDeposits = [...(customer.deposits || [])].sort((a, b) => {
+    const dateA = a.created_at || a.date || "";
+    const dateB = b.created_at || b.date || "";
+    return dateB.localeCompare(dateA);
+  });
+
+  // PDF 출력용 임시 HTML 템플릿 생성
+  const pdfContainer = document.createElement("div");
+  pdfContainer.style.padding = "20px";
+  pdfContainer.style.fontFamily = "sans-serif";
+  pdfContainer.style.color = "#333";
+
+  let rowsHtml = sortedDeposits.map((d, index) => `
+    <tr style="border-bottom: 1px solid #ddd; text-align: center;">
+      <td style="padding: 10px;">${index + 1}</td>
+      <td style="padding: 10px;">${formatDate(d.created_at || d.date)}</td>
+      <td style="padding: 10px;">${d.memo || d.note || '-'}</td>
+      <td style="padding: 10px; font-weight: bold; text-align: right;">+${money(d.amount)}</td>
+    </tr>
+  `).join("");
+
+  if (sortedDeposits.length === 0) {
+    rowsHtml = `<tr><td colspan="4" style="padding: 20px; text-align: center; color: #888;">입금 내역이 없습니다.</td></tr>`;
+  }
+
+  pdfContainer.innerHTML = `
+    <div style="text-align: center; margin-bottom: 30px;">
+      <h2 style="margin: 0; color: #d4af37;">HANGTHONG SOMBOON GOLD SAVINGS</h2>
+      <h3 style="margin: 5px 0 0 0;">입금/송금 내역서</h3>
+    </div>
+    
+    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+      <p style="margin: 3px 0;"><strong>고객명:</strong> ${customer.name}</p>
+      <p style="margin: 3px 0;"><strong>고객번호(Serial):</strong> ${customer.serial || '-'}</p>
+      <p style="margin: 3px 0;"><strong>전화번호:</strong> ${customer.phone || '-'}</p>
+      <p style="margin: 3px 0;"><strong>총 적립금액:</strong> <span style="color:#d4af37; font-weight:bold;">${money(info.total)}</span> (총 ${info.count}회)</p>
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px;">
+      <thead>
+        <tr style="background: #333; color: #fff; text-align: center;">
+          <th style="padding: 10px;">NO</th>
+          <th style="padding: 10px;">일자</th>
+          <th style="padding: 10px;">적요/메모</th>
+          <th style="padding: 10px; text-align: right;">금액</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+
+    <div style="margin-top: 40px; text-align: right; font-size: 11px; color: #888;">
+      발급일자: ${today()}
+    </div>
+  `;
+
+  const opt = {
+    margin:       10,
+    filename:     `입금내역서_${customer.name}_${today()}.pdf`,
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2 },
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  html2pdf().set(opt).from(pdfContainer).save();
+}
+
 async function renderAdmin() {
   console.log("관리자 데이터 렌더링 중...");
   const customers = await fetchCustomersFromDB();
@@ -214,7 +306,6 @@ async function renderAdmin() {
   const countEl = document.getElementById("admin-customer-count");
   if (countEl) countEl.textContent = customers.length + "명";
 
-  /* Select 박스 바인딩 */
   const options = sorted.map(customer => {
     const id = getCustomerId(customer);
     return `
@@ -234,7 +325,6 @@ async function renderAdmin() {
     editSelect.innerHTML = `<option value="">수정할 고객 선택</option>` + options;
   }
 
-  /* 고객 목록 및 입금 상세 표시 */
   const list = document.getElementById("admin-customer-list");
   if (list) {
     list.innerHTML = "";
@@ -242,18 +332,21 @@ async function renderAdmin() {
       const info = totals(customer);
       const cId = getCustomerId(customer) || `idx-${idx}`;
       
-      const depositRows = (customer.deposits || []).map(d => `
-        <div style="display:flex; justify-content:space-between; align-items:center; background:#f8f9fa; padding:6px 10px; margin-top:4px; border-radius:4px; font-size:13px;">
-          <span>${formatDate(d.created_at || d.date)} | ${money(d.amount)} (${d.memo || d.note || '-'})</span>
-          <button type="button" class="edit-deposit-btn" 
-            data-id="${d.id}" 
-            data-customer-id="${cId}"
-            data-amount="${d.amount}" 
-            data-date="${(d.created_at || d.date || '').slice(0, 10)}" 
-            data-note="${d.memo || d.note || ''}"
-            style="padding:2px 6px; font-size:11px;">수정</button>
-        </div>
-      `).join('');
+      const depositRows = (customer.deposits || []).map(d => {
+        const depId = getDepositId(d);
+        return `
+          <div style="display:flex; justify-content:space-between; align-items:center; background:#f8f9fa; padding:6px 10px; margin-top:4px; border-radius:4px; font-size:13px;">
+            <span>${formatDate(d.created_at || d.date)} | ${money(d.amount)} (${d.memo || d.note || '-'})</span>
+            <button type="button" class="edit-deposit-btn" 
+              data-id="${depId}" 
+              data-customer-id="${cId}"
+              data-amount="${d.amount}" 
+              data-date="${(d.created_at || d.date || '').slice(0, 10)}" 
+              data-note="${d.memo || d.note || ''}"
+              style="padding:2px 6px; font-size:11px;">수정</button>
+          </div>
+        `;
+      }).join('');
 
       list.innerHTML += `
         <div class="customer-row" style="flex-direction:column; align-items:stretch; gap:8px;">
@@ -334,6 +427,9 @@ function openPasswordModal(customerId) {
 =========================================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
+  /* PDF 다운로드 버튼 클릭 연동 */
+  document.getElementById("download-pdf-btn")?.addEventListener("click", downloadDepositPDF);
+
   /* 1. data-view 버튼을 통한 화면 전환 */
   document.querySelectorAll("[data-view]").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -482,6 +578,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const date = document.getElementById("edit-deposit-date").value;
     const note = document.getElementById("edit-deposit-note").value;
 
+    if (!id || id === "undefined" || id === "null") {
+      alert("수정할 입금 내역의 ID가 올바르지 않습니다.");
+      return;
+    }
+
     if (!amount || amount <= 0) {
       alert("올바른 입금액을 입력해주세요.");
       return;
@@ -510,7 +611,11 @@ document.addEventListener("DOMContentLoaded", () => {
   /* 9. 입금 내역 삭제 버튼 클릭 */
   document.getElementById("delete-deposit-btn")?.addEventListener("click", async () => {
     const id = document.getElementById("edit-deposit-id").value;
-    if (!id) return;
+    
+    if (!id || id === "undefined" || id === "null") {
+      alert("삭제할 입금 내역의 고유 ID가 없습니다.");
+      return;
+    }
 
     if (confirm("정말로 이 입금 내역을 삭제하시겠습니까?")) {
       try {
