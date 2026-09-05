@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 2.4
- Fix : Event Listener Scope & Duplicated Function Removal
+ Version 2.4.1
+ Fix : Event Listener Scope & Customer Target ID Mismatch Fix
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
@@ -35,6 +35,12 @@ const formatDate = value => {
   } catch (e) {
     return value;
   }
+};
+
+// 고객 고유 ID 안전하게 추출하는 헬퍼 함수
+const getCustomerId = customer => {
+  if (!customer) return "";
+  return String(customer.id ?? customer._id ?? customer.serial ?? "");
 };
 
 /* ===========================================================
@@ -147,8 +153,7 @@ async function renderCustomer() {
   await fetchCustomersFromDB();
   
   const customer = cachedCustomers.find(c =>
-    String(c.id) === String(activeCustomerId) ||
-    String(c._id) === String(activeCustomerId)
+    getCustomerId(c) === String(activeCustomerId)
   );
 
   if (!customer) {
@@ -211,7 +216,7 @@ async function renderAdmin() {
 
   /* Select 박스 바인딩 */
   const options = sorted.map(customer => {
-    const id = customer.id || customer._id;
+    const id = getCustomerId(customer);
     return `
       <option value="${id}">
         [${customer.serial || '미등록'}] ${customer.name} · ${customer.phone}
@@ -233,15 +238,16 @@ async function renderAdmin() {
   const list = document.getElementById("admin-customer-list");
   if (list) {
     list.innerHTML = "";
-    sorted.forEach(customer => {
+    sorted.forEach((customer, idx) => {
       const info = totals(customer);
+      const cId = getCustomerId(customer) || `idx-${idx}`;
       
       const depositRows = (customer.deposits || []).map(d => `
         <div style="display:flex; justify-content:space-between; align-items:center; background:#f8f9fa; padding:6px 10px; margin-top:4px; border-radius:4px; font-size:13px;">
           <span>${formatDate(d.created_at || d.date)} | ${money(d.amount)} (${d.memo || d.note || '-'})</span>
           <button type="button" class="edit-deposit-btn" 
             data-id="${d.id}" 
-            data-customer-id="${customer.id || customer._id}"
+            data-customer-id="${cId}"
             data-amount="${d.amount}" 
             data-date="${(d.created_at || d.date || '').slice(0, 10)}" 
             data-note="${d.memo || d.note || ''}"
@@ -259,10 +265,10 @@ async function renderAdmin() {
             <strong>${money(info.total)}</strong>
           </div>
           <div class="customer-buttons">
-            <button class="password-check" data-id="${customer.id || customer._id}">비밀번호 확인</button>
-            <button class="toggle-deposits-btn" data-target="deposits-${customer.id || customer._id}">입금 내역 관리 (${info.count})</button>
+            <button class="password-check" data-id="${cId}">비밀번호 확인</button>
+            <button class="toggle-deposits-btn" data-target="deposits-${cId}">입금 내역 관리 (${info.count})</button>
           </div>
-          <div id="deposits-${customer.id || customer._id}" class="hidden" style="margin-top:8px; border-top:1px solid #eee; padding-top:8px;">
+          <div id="deposits-${cId}" class="hidden" style="margin-top:8px; border-top:1px solid #eee; padding-top:8px;">
             ${depositRows || '<p style="font-size:12px; color:#888;">입금 내역이 없습니다.</p>'}
           </div>
         </div>
@@ -307,8 +313,7 @@ function closePasswordModal() {
 function openPasswordModal(customerId) {
   passwordCustomerId = customerId;
   const customer = cachedCustomers.find(c =>
-    String(c.id) === String(customerId) ||
-    String(c._id) === String(customerId)
+    getCustomerId(c) === String(customerId)
   );
 
   const titleEl = document.getElementById("password-modal-title");
@@ -373,7 +378,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    activeCustomerId = found.id || found._id;
+    activeCustomerId = getCustomerId(found);
     renderCustomer();
   });
 
@@ -445,7 +450,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const customers = await fetchCustomersFromDB();
-    const customer = customers.find(c => String(c.id || c._id) === String(customerId));
+    const customer = customers.find(c => getCustomerId(c) === String(customerId));
 
     try {
       await saveDepositToDB({
@@ -536,7 +541,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const customer = cachedCustomers.find(c =>
-      String(c.id || c._id) === String(passwordCustomerId)
+      getCustomerId(c) === String(passwordCustomerId)
     );
 
     document.getElementById("password-confirm-form")?.classList.add("hidden");
