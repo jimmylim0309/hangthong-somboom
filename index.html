@@ -74,7 +74,8 @@
             <strong id="customer-total">0원</strong>
             <small id="customer-last-deposit"></small>
           </article>
-          <button id="download-pdf" class="pdf-button" type="button">
+          <!-- 수정: app.js의 이벤트 리스너 ID와 동일하게 download-pdf-btn으로 변경 -->
+          <button id="download-pdf-btn" class="pdf-button" type="button">
             <span>↓</span><span data-i18n="downloadPdf">송금 내역 PDF 다운로드</span>
           </button>
           <div class="stat-grid">
@@ -205,7 +206,7 @@
             <button class="primary-button" type="submit" data-i18n="saveCustomer">고객 정보 저장</button>
           </form>
 
-          <!-- 입금 기록 등록 폼 (버튼 ID 및 태그 구조 보정 완료) -->
+          <!-- 입금 기록 등록 폼 -->
           <form id="new-deposit-form" class="manager-form hidden">
             <h2 data-i18n="recordDepositPlain">입금 기록</h2>
             <label>
@@ -258,35 +259,33 @@
           </div>
         </div>
       </div>
+
+      <!-- 입금 내역 수정 모달 (main 태그 내부로 이동) -->
+      <div id="edit-deposit-modal" class="modal hidden">
+        <div class="modal-content">
+          <h3>입금 내역 수정</h3>
+          <form id="edit-deposit-form" onsubmit="return false;">
+            <input type="hidden" id="edit-deposit-id">
+            <input type="hidden" id="edit-deposit-customer-id">
+            
+            <label>입금일자</label>
+            <input type="date" id="edit-deposit-date" required>
+            
+            <label>입금액</label>
+            <input type="number" id="edit-deposit-amount" required>
+            
+            <label>메모</label>
+            <input type="text" id="edit-deposit-note">
+            
+            <div class="modal-buttons" style="margin-top: 15px; display: flex; gap: 8px;">
+              <button type="button" id="submit-edit-deposit-btn" class="primary-button">수정 완료</button>
+              <button type="button" id="delete-deposit-btn" class="danger-button" style="background-color: #dc3545; color: white;">삭제</button>
+              <button type="button" id="close-edit-deposit-modal" class="secondary-button">취소</button>
+            </div>
+          </form>
+        </div>
+      </div>
     </main>
     <script src="app.js"></script>
   </body>
 </html>
-
-<!-- 입금 내역 수정 모달 -->
-<!-- index.html 수정 -->
-<div id="edit-deposit-modal" class="modal hidden">
-  <div class="modal-content">
-    <h3>입금 내역 수정</h3>
-    <form id="edit-deposit-form" onsubmit="return false;"> <!-- 추가: submit 동작 방지 -->
-      <input type="hidden" id="edit-deposit-id">
-      <input type="hidden" id="edit-deposit-customer-id">
-      
-      <label>입금일자</label>
-      <input type="date" id="edit-deposit-date" required>
-      
-      <label>입금액</label>
-      <input type="number" id="edit-deposit-amount" required>
-      
-      <label>메모</label>
-      <input type="text" id="edit-deposit-note">
-      
-      <div class="modal-buttons" style="margin-top: 15px; display: flex; gap: 8px;">
-        <!-- type="button" 및 id="submit-edit-deposit-btn" 으로 변경 -->
-        <button type="button" id="submit-edit-deposit-btn" class="primary-button">수정 완료</button>
-        <button type="button" id="delete-deposit-btn" class="danger-button" style="background-color: #dc3545; color: white;">삭제</button>
-        <button type="button" id="close-edit-deposit-modal" class="secondary-button">취소</button>
-      </div>
-    </form>
-  </div>
-</div>
