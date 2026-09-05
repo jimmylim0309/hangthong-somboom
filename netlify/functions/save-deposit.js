@@ -22,7 +22,7 @@ exports.handler = async (event, context) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const depositData = JSON.parse(event.body);
 
-    // id가 포함되어 있으면 기존 데이터 수정, 없으면 신규 저장
+    // id가 있으면 수정(Update), 없으면 신규 저장(Insert)
     const { data, error } = await supabase
       .from('deposits')
       .upsert([depositData])
