@@ -49,6 +49,21 @@ async function saveDepositToDB(depositData) {
   return await res.json();
 }
 
+async function fetchDepositsFromDB(serial) {
+  try {
+    const response = await fetch(`/.netlify/functions/get-deposits?serial=${encodeURIComponent(serial)}`);
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || '입금 내역 불러오기 실패');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('API Error:', error);
+    alert('입금 내역 조회 오류: ' + error.message);
+    return [];
+  }
+}
+
 function setLanguage(next) { 
   language=next; 
   localStorage.setItem("hangthong-language", language); 
@@ -67,7 +82,7 @@ function reportCanvas(customer, rows, page, pageCount) {
   ctx.fillStyle="#ffe7a0"; ctx.font="700 31px Arial"; ctx.fillText("HANGTHONG SOMBOON",pad,77); ctx.fillStyle="#fff"; ctx.font="700 46px 'Noto Sans Thai','Noto Sans KR',Arial"; ctx.fillText(t("downloadPdf").replace(" PDF 다운로드","").replace(" PDF", ""),pad,145);
   ctx.fillStyle="#3c1014"; ctx.font="700 35px 'Noto Sans Thai','Noto Sans KR',Arial"; ctx.fillText(`${t("customerName")}: ${customer.name}`,pad,300); ctx.font="500 25px 'Noto Sans Thai','Noto Sans KR',Arial"; ctx.fillStyle="#725456"; ctx.fillText(`${t("phone")}: ${customer.phone}`,pad,344); ctx.fillText(`${t("address")}: ${customer.address || "-"}`,pad,387); ctx.fillText(`${t("totalSavings")}: ${money(totals(customer).total)}`,pad,430);
   const top=490; ctx.fillStyle="#7b0712"; ctx.fillRect(pad,top,width-pad*2,58); ctx.fillStyle="#fff"; ctx.font="700 23px 'Noto Sans Thai','Noto Sans KR',Arial"; ctx.fillText(t("depositDate"),pad+26,top+38); ctx.fillText(t("memo"),pad+350,top+38); ctx.textAlign="right"; ctx.fillText(t("depositAmount"),width-pad-26,top+38); ctx.textAlign="left";
-  let y=top+58; rows.forEach((d,index)=>{ ctx.fillStyle=index%2 ? "#fffdf8" : "#fff4dc"; ctx.fillRect(pad,y,width-pad*2,62); ctx.fillStyle="#3c1014"; ctx.font="500 22px 'Noto Sans Thai','Noto Sans KR',Arial"; ctx.fillText(formatDate(d.date),pad+26,y+39); ctx.fillText(d.note || t("deposit"),pad+350,y+39); ctx.textAlign="right"; ctx.font="700 22px Arial"; ctx.fillText(`+${money(d.amount)}`,width-pad-26,y+39); ctx.textAlign="left"; y+=62; });
+  let y=top+58; rows.forEach((d,index)=>{ ctx.fillStyle=index%2 ? "#fffdf8" : "#fff4dc"; ctx.fillRect(pad,y,width-pad*2,62); ctx.fillStyle="#3c1014"; ctx.font="500 22px 'Noto Sans Thai','Noto Sans KR',Arial"; ctx.fillText(formatDate(d.date),pad+26,y+39); ctx.fillText(d.note || d.memo || t("deposit"),pad+350,y+39); ctx.textAlign="right"; ctx.font="700 22px Arial"; ctx.fillText(`+${money(d.amount)}`,width-pad-26,y+39); ctx.textAlign="left"; y+=62; });
   ctx.fillStyle="#8a6b6d"; ctx.font="500 19px Arial"; ctx.textAlign="center"; ctx.fillText(`${page} / ${pageCount}`,width/2,height-60); ctx.textAlign="left"; return canvas;
 }
 function bytesFromDataUrl(dataUrl) { const raw=atob(dataUrl.split(",")[1]), bytes=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++) bytes[i]=raw.charCodeAt(i); return bytes; }
@@ -79,7 +94,7 @@ async function downloadCustomerPdf() { const customer=cachedCustomers.find(c=>c.
 
 function show(id) { document.querySelectorAll(".screen").forEach(x => x.classList.add("hidden")); document.getElementById(id).classList.remove("hidden"); }
 function totals(customer) { const deposits = customer.deposits || []; return { total:deposits.reduce((sum,d) => sum + Number(d.amount),0), count:deposits.length, recent:[...deposits].sort((a,b)=>b.date.localeCompare(a.date))[0] }; }
-function depositRow(d) { return `<div class="deposit-row"><div><p>${formatDate(d.date)}</p><small>${d.note || t("deposit")}</small></div><strong>+${money(d.amount)}</strong></div>`; }
+function depositRow(d) { return `<div class="deposit-row"><div><p>${formatDate(d.date)}</p><small>${d.note || d.memo || t("deposit")}</small></div><strong>+${money(d.amount)}</strong></div>`; }
 
 async function renderCustomer() {
   await fetchCustomersFromDB();
@@ -195,17 +210,25 @@ document.getElementById("edit-customer-form").addEventListener("submit", async e
   }
 });
 
-// 신규 입금 기록 (Supabase DB 저장)
+// 신규 입금 기록 (Supabase DB 저장 - 에러 수정 완료)
 document.getElementById("new-deposit-form").addEventListener("submit", async e => { 
   e.preventDefault(); 
   const customerId = document.getElementById("deposit-customer").value;
   if(!customerId) return;
 
-const depositData = {
-  customer_id: serial, // 또는 customerId
-  amount: amount,
-  memo: memo
-};
+  const customer = cachedCustomers.find(c => c.id === customerId);
+  const serial = customer ? customer.serial : "";
+  const amount = Number(document.getElementById("deposit-amount").value);
+  const memo = document.getElementById("deposit-memo").value;
+  const date = document.getElementById("deposit-date").value;
+
+  const depositData = {
+    customer_id: customerId,
+    serial: serial,
+    amount: amount,
+    memo: memo,
+    date: date
+  };
 
   try {
     await saveDepositToDB(depositData);
@@ -232,86 +255,16 @@ document.getElementById("password-confirm-form").addEventListener("submit", e =>
   document.getElementById("revealed-password").classList.remove("hidden"); 
 });
 
-document.getElementById("deposit-date").value = today();
-setLanguage(language);
-// 1. 특정 고객의 입금 내역 조회
-async function fetchDepositsFromDB(serial) {
-  try {
-    const response = await fetch(`/.netlify/functions/get-deposits?serial=${encodeURIComponent(serial)}`);
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || '입금 내역 불러오기 실패');
-    }
-    const data = await response.json();
-    return data; // 입금 내역 배열 반환
-  } catch (error) {
-    console.error('API Error:', error);
-    alert('입금 내역 조회 오류: ' + error.message);
-    return [];
-  }
-}
-
-// 2. 입금 내역 저장 및 수정 (id가 있으면 수정, 없으면 신규 저장)
-async function saveDepositToDB(depositData) {
-  // depositData 구조 예시:
-  // 신규 등록: { serial: '1001', amount: 50000, memo: '충전' }
-  // 기존 수정: { id: 3, serial: '1001', amount: 60000, memo: '금액 수정' }
-  try {
-    const response = await fetch('/.netlify/functions/save-deposit', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(depositData),
-    });
-
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || '입금 내역 저장 실패');
-    }
-
-    const result = await response.json();
-    return result;
-  } catch (error) {
-    console.error('API Error:', error);
-    alert('입금 내역 저장 오류: ' + error.message);
-    throw error;
-  }
-}
-// 입금 등록 폼 이벤트 예시
-document.getElementById('deposit-form')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const serial = document.getElementById('deposit-serial').value;
-  const amount = Number(document.getElementById('deposit-amount').value);
-  const memo = document.getElementById('deposit-memo').value;
-
-  const newDeposit = {
-    serial: serial,
-    amount: amount,
-    memo: memo
-  };
-
-  try {
-    await saveDepositToDB(newDeposit);
-    alert('입금 내역이 정상적으로 등록되었습니다.');
-    // 폼 초기화 및 목록 재갱신 로직 실행
-    e.target.reset();
-    renderDepositList(serial); 
-  } catch (err) {
-    // 에러 처리는 saveDepositToDB 내부에서 수행됨
-  }
-});
-// 입금 내역 수정 함수 (예: 수정 버튼 클릭 시 실행)
+// 입금 내역 수정 함수
 async function handleEditDeposit(id, serial, currentAmount, currentMemo) {
   const newAmount = prompt('수정할 입금 금액을 입력하세요:', currentAmount);
-  if (newAmount === null) return; // 취소 클릭 시
+  if (newAmount === null) return;
 
   const newMemo = prompt('수정할 메모를 입력하세요:', currentMemo);
   if (newMemo === null) return;
 
   const updatedDeposit = {
-    id: id,            // PK인 id를 넘겨줘야 기존 데이터가 수정됨
+    id: id,
     serial: serial,
     amount: Number(newAmount),
     memo: newMemo
@@ -320,13 +273,15 @@ async function handleEditDeposit(id, serial, currentAmount, currentMemo) {
   try {
     await saveDepositToDB(updatedDeposit);
     alert('입금 내역이 수정되었습니다.');
-    renderDepositList(serial); // 목록 재갱신
+    renderDepositList(serial);
   } catch (err) {
-    // 에러 발생 처리
+    console.error(err);
   }
 }
+
 async function renderDepositList(serial) {
   const container = document.getElementById('deposit-list-container');
+  if (!container) return;
   container.innerHTML = '로딩 중...';
 
   const deposits = await fetchDepositsFromDB(serial);
@@ -350,14 +305,14 @@ async function renderDepositList(serial) {
   `;
 
   deposits.forEach(item => {
-    const date = new Date(item.created_at).toLocaleDateString();
+    const date = new Date(item.created_at || item.date).toLocaleDateString();
     html += `
       <tr>
         <td>${date}</td>
         <td>${Number(item.amount).toLocaleString()}원</td>
-        <td>${item.memo || '-'}</td>
+        <td>${item.memo || item.note || '-'}</td>
         <td>
-          <button onclick="handleEditDeposit(${item.id}, '${item.serial}', ${item.amount}, '${item.memo || ''}')">수정</button>
+          <button onclick="handleEditDeposit(${item.id}, '${item.serial}', ${item.amount}, '${item.memo || item.note || ''}')">수정</button>
         </td>
       </tr>
     `;
@@ -366,3 +321,7 @@ async function renderDepositList(serial) {
   html += '</tbody></table>';
   container.innerHTML = html;
 }
+
+// 초기화 실행
+document.getElementById("deposit-date").value = today();
+setLanguage(language);
