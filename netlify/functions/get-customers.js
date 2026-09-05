@@ -16,8 +16,8 @@ exports.handler = async (event, context) => {
 
     // 정렬(order) 구문을 제외하고 단순 전체 데이터 조회
     const { data, error } = await supabase
-      .from('customers')
-      .select('*');
+  .from('customers')
+  .select('*, deposits(*)');
 
     if (error) {
       return {
