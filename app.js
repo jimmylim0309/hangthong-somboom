@@ -110,22 +110,31 @@ function setLanguage(next) {
 }
 
 /* ===========================================================
-   RENDER LOGIC
+   RENDER LOGIC (전체 교체용)
 =========================================================== */
 
 function totals(customer) {
   const deposits = customer.deposits || [];
   const total = deposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
-  const recent = [...deposits].sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
+  
+  // created_at과 date 필드 모두 대응하여 최신 내역 추출
+  const sorted = [...deposits].sort((a, b) => {
+    const dateA = a.created_at || a.date || "";
+    const dateB = b.created_at || b.date || "";
+    return dateB.localeCompare(dateA);
+  });
+
   return {
     total,
     count: deposits.length,
-    recent
+    recent: sorted[0]
   };
 }
 
 async function renderCustomer() {
   await fetchCustomersFromDB();
+  
+  // ID 비교 시 문자열/숫자 타입 차이 방지
   const customer = cachedCustomers.find(c =>
     String(c.id) === String(activeCustomerId) ||
     String(c._id) === String(activeCustomerId)
@@ -146,21 +155,26 @@ async function renderCustomer() {
   if (nameEl) nameEl.textContent = customer.name;
   if (totalEl) totalEl.textContent = money(info.total);
   if (countEl) countEl.textContent = info.count + "회";
-  if (recentEl) recentEl.textContent = info.recent ? formatDate(info.recent.date) : "-";
+  if (recentEl) recentEl.textContent = info.recent ? formatDate(info.recent.created_at || info.recent.date) : "-";
 
   const list = document.getElementById("customer-deposit-list");
   if (list) {
     list.innerHTML = "";
-    if (info.count === 0) {
+    if (!customer.deposits || customer.deposits.length === 0) {
       list.innerHTML = "<p class='empty'>입금 내역이 없습니다.</p>";
     } else {
       [...customer.deposits]
-        .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+        .sort((a, b) => {
+          const dateA = a.created_at || a.date || "";
+          const dateB = b.created_at || b.date || "";
+          return dateB.localeCompare(dateA);
+        })
         .forEach(d => {
+          const displayDate = d.created_at || d.date;
           list.innerHTML += `
             <div class="deposit-row">
               <div>
-                <p>${formatDate(d.date)}</p>
+                <p>${formatDate(displayDate)}</p>
                 <small>${d.memo || d.note || "-"}</small>
               </div>
               <strong>+${money(d.amount)}</strong>
@@ -184,7 +198,7 @@ async function renderAdmin() {
   const countEl = document.getElementById("admin-customer-count");
   if (countEl) countEl.textContent = customers.length + "명";
 
-  /* index.html의 ID에 맞춘 Select 박스 바인딩 */
+  /* Select 박스 바인딩 */
   const options = sorted.map(customer => {
     const id = customer.id || customer._id;
     return `
