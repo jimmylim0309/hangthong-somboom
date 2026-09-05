@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 2.3
- Fix : HTML ID Mapping & Dynamic Screen Navigation
+ Version 2.4
+ Fix : Event Listener Scope & Duplicated Function Removal
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
@@ -79,6 +79,19 @@ async function saveDepositToDB(deposit) {
   return result;
 }
 
+async function deleteDepositFromDB(depositId) {
+  const res = await fetch("/.netlify/functions/delete-deposit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: depositId })
+  });
+  const result = await res.json();
+  if (!res.ok) {
+    throw new Error(result.error || "입금 삭제 실패");
+  }
+  return result;
+}
+
 /* ===========================================================
    SCREEN & LANGUAGE NAVIGATION
 =========================================================== */
@@ -110,14 +123,13 @@ function setLanguage(next) {
 }
 
 /* ===========================================================
-   RENDER LOGIC (전체 교체용)
+   RENDER LOGIC
 =========================================================== */
 
 function totals(customer) {
   const deposits = customer.deposits || [];
   const total = deposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
   
-  // created_at과 date 필드 모두 대응하여 최신 내역 추출
   const sorted = [...deposits].sort((a, b) => {
     const dateA = a.created_at || a.date || "";
     const dateB = b.created_at || b.date || "";
@@ -134,7 +146,6 @@ function totals(customer) {
 async function renderCustomer() {
   await fetchCustomersFromDB();
   
-  // ID 비교 시 문자열/숫자 타입 차이 방지
   const customer = cachedCustomers.find(c =>
     String(c.id) === String(activeCustomerId) ||
     String(c._id) === String(activeCustomerId)
@@ -218,34 +229,66 @@ async function renderAdmin() {
     editSelect.innerHTML = `<option value="">수정할 고객 선택</option>` + options;
   }
 
-  /* 고객 목록 표시 */
+  /* 고객 목록 및 입금 상세 표시 */
   const list = document.getElementById("admin-customer-list");
   if (list) {
     list.innerHTML = "";
     sorted.forEach(customer => {
       const info = totals(customer);
+      
+      const depositRows = (customer.deposits || []).map(d => `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#f8f9fa; padding:6px 10px; margin-top:4px; border-radius:4px; font-size:13px;">
+          <span>${formatDate(d.created_at || d.date)} | ${money(d.amount)} (${d.memo || d.note || '-'})</span>
+          <button type="button" class="edit-deposit-btn" 
+            data-id="${d.id}" 
+            data-customer-id="${customer.id || customer._id}"
+            data-amount="${d.amount}" 
+            data-date="${(d.created_at || d.date || '').slice(0, 10)}" 
+            data-note="${d.memo || d.note || ''}"
+            style="padding:2px 6px; font-size:11px;">수정</button>
+        </div>
+      `).join('');
+
       list.innerHTML += `
-        <div class="customer-row">
-          <div>
-            <p>${customer.name}</p>
-            <small>
-              ${customer.serial || '미등록'} ·
-              ${customer.phone} ·
-              입금 ${info.count}회
-            </small>
-            <div class="customer-buttons">
-              <button class="password-check" data-id="${customer.id || customer._id}">
-                비밀번호 확인
-              </button>
+        <div class="customer-row" style="flex-direction:column; align-items:stretch; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <p><strong>${customer.name}</strong></p>
+              <small>${customer.serial || '미등록'} · ${customer.phone} · 입금 ${info.count}회</small>
             </div>
+            <strong>${money(info.total)}</strong>
           </div>
-          <strong>${money(info.total)}</strong>
+          <div class="customer-buttons">
+            <button class="password-check" data-id="${customer.id || customer._id}">비밀번호 확인</button>
+            <button class="toggle-deposits-btn" data-target="deposits-${customer.id || customer._id}">입금 내역 관리 (${info.count})</button>
+          </div>
+          <div id="deposits-${customer.id || customer._id}" class="hidden" style="margin-top:8px; border-top:1px solid #eee; padding-top:8px;">
+            ${depositRows || '<p style="font-size:12px; color:#888;">입금 내역이 없습니다.</p>'}
+          </div>
         </div>
       `;
     });
 
     document.querySelectorAll(".password-check").forEach(button => {
       button.onclick = () => openPasswordModal(button.dataset.id);
+    });
+
+    document.querySelectorAll(".toggle-deposits-btn").forEach(button => {
+      button.onclick = () => {
+        const targetEl = document.getElementById(button.dataset.target);
+        if (targetEl) targetEl.classList.toggle("hidden");
+      };
+    });
+
+    document.querySelectorAll(".edit-deposit-btn").forEach(button => {
+      button.onclick = () => {
+        document.getElementById("edit-deposit-id").value = button.dataset.id;
+        document.getElementById("edit-deposit-customer-id").value = button.dataset.customerId;
+        document.getElementById("edit-deposit-amount").value = button.dataset.amount;
+        document.getElementById("edit-deposit-date").value = button.dataset.date;
+        document.getElementById("edit-deposit-note").value = button.dataset.note;
+        document.getElementById("edit-deposit-modal")?.classList.remove("hidden");
+      };
     });
   }
 
@@ -286,7 +329,7 @@ function openPasswordModal(customerId) {
 =========================================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
-  /* 1. data-view 버튼을 통한 화면 전환 (관리자 버튼, 뒤로가기 버튼 등) */
+  /* 1. data-view 버튼을 통한 화면 전환 */
   document.querySelectorAll("[data-view]").forEach(btn => {
     btn.addEventListener("click", () => {
       const targetView = btn.dataset.view;
@@ -294,7 +337,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  /* 2. 관리자 대시보드 내 서브 패널 토글 (+ 고객 등록, + 입금 기록 등) */
+  /* 2. 관리자 대시보드 내 서브 패널 토글 */
   document.querySelectorAll("[data-panel]").forEach(btn => {
     btn.addEventListener("click", () => {
       const panelId = btn.dataset.panel;
@@ -379,7 +422,7 @@ document.addEventListener("DOMContentLoaded", () => {
     await renderAdmin();
   });
 
-  /* 7. 입금 기록 저장 제출 (index.html ID 기준) */
+  /* 7. 입금 기록 저장 제출 */
   document.getElementById("new-deposit-form")?.addEventListener("submit", async e => {
     e.preventDefault();
 
@@ -424,7 +467,64 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  /* 8. 관리자 비밀번호 확인 모달 제출 */
+  /* 8. 입금 내역 수정 버튼 클릭 */
+  document.getElementById("submit-edit-deposit-btn")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+
+    const id = document.getElementById("edit-deposit-id").value;
+    const customerId = document.getElementById("edit-deposit-customer-id").value;
+    const amount = Number(document.getElementById("edit-deposit-amount").value);
+    const date = document.getElementById("edit-deposit-date").value;
+    const note = document.getElementById("edit-deposit-note").value;
+
+    if (!amount || amount <= 0) {
+      alert("올바른 입금액을 입력해주세요.");
+      return;
+    }
+
+    try {
+      await saveDepositToDB({
+        id: id,
+        customer_id: customerId,
+        amount: amount,
+        created_at: date,
+        date: date,
+        memo: note,
+        note: note
+      });
+
+      alert("입금 내역이 수정되었습니다.");
+      document.getElementById("edit-deposit-modal")?.classList.add("hidden");
+      await renderAdmin();
+    } catch (err) {
+      console.error("수정 실패:", err);
+      alert("수정 실패: " + err.message);
+    }
+  });
+
+  /* 9. 입금 내역 삭제 버튼 클릭 */
+  document.getElementById("delete-deposit-btn")?.addEventListener("click", async () => {
+    const id = document.getElementById("edit-deposit-id").value;
+    if (!id) return;
+
+    if (confirm("정말로 이 입금 내역을 삭제하시겠습니까?")) {
+      try {
+        await deleteDepositFromDB(id);
+        alert("입금 내역이 삭제되었습니다.");
+        document.getElementById("edit-deposit-modal")?.classList.add("hidden");
+        await renderAdmin();
+      } catch (err) {
+        alert("삭제 실패: " + err.message);
+      }
+    }
+  });
+
+  /* 10. 수정 모달 닫기 */
+  document.getElementById("close-edit-deposit-modal")?.addEventListener("click", () => {
+    document.getElementById("edit-deposit-modal")?.classList.add("hidden");
+  });
+
+  /* 11. 관리자 비밀번호 확인 모달 제출 */
   document.getElementById("password-confirm-form")?.addEventListener("submit", e => {
     e.preventDefault();
     const passInput = document.getElementById("password-confirm-input");
@@ -445,7 +545,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("revealed-password")?.classList.remove("hidden");
   });
 
-  /* 9. 기타 버튼 이벤트 연동 (로그아웃, 모달 닫기 등) */
+  /* 12. 기타 버튼 이벤트 연동 (로그아웃, 모달 닫기 등) */
   document.getElementById("customer-logout")?.addEventListener("click", () => {
     activeCustomerId = null;
     document.getElementById("customer-login-form")?.reset();
@@ -467,161 +567,3 @@ document.addEventListener("DOMContentLoaded", () => {
   setLanguage(language);
   fetchCustomersFromDB();
 });
-
-async function deleteDepositFromDB(depositId) {
-  const res = await fetch("/.netlify/functions/delete-deposit", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: depositId })
-  });
-  const result = await res.json();
-  if (!res.ok) {
-    throw new Error(result.error || "입금 삭제 실패");
-  }
-  return result;
-}
-
-async function renderAdmin() {
-  console.log("관리자 데이터 렌더링 중...");
-  const customers = await fetchCustomersFromDB();
-
-  const sorted = [...customers].sort((a, b) =>
-    String(a.serial || "").localeCompare(String(b.serial || ""), "ko", { numeric: true })
-  );
-
-  const countEl = document.getElementById("admin-customer-count");
-  if (countEl) countEl.textContent = customers.length + "명";
-
-  const list = document.getElementById("admin-customer-list");
-  if (list) {
-    list.innerHTML = "";
-    sorted.forEach(customer => {
-      const info = totals(customer);
-      
-      // 고객별 입금 내역 HTML 생성
-      const depositRows = (customer.deposits || []).map(d => `
-        <div style="display:flex; justify-space-between; align-items:center; background:#f8f9fa; padding:6px 10px; margin-top:4px; border-radius:4px; font-size:13px;">
-          <span>${formatDate(d.created_at || d.date)} | ${money(d.amount)} (${d.memo || d.note || '-'})</span>
-          <button type="button" class="edit-deposit-btn" 
-            data-id="${d.id}" 
-            data-customer-id="${customer.id || customer._id}"
-            data-amount="${d.amount}" 
-            data-date="${(d.created_at || d.date || '').slice(0, 10)}" 
-            data-note="${d.memo || d.note || ''}"
-            style="padding:2px 6px; font-size:11px;">수정</button>
-        </div>
-      `).join('');
-
-      list.innerHTML += `
-        <div class="customer-row" style="flex-direction:column; align-items:stretch; gap:8px;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div>
-              <p><strong>${customer.name}</strong></p>
-              <small>${customer.serial || '미등록'} · ${customer.phone} · 입금 ${info.count}회</small>
-            </div>
-            <strong>${money(info.total)}</strong>
-          </div>
-          <div class="customer-buttons">
-            <button class="password-check" data-id="${customer.id || customer._id}">비밀번호 확인</button>
-            <button class="toggle-deposits-btn" data-target="deposits-${customer.id || customer._id}">입금 내역 관리 (${info.count})</button>
-          </div>
-          <div id="deposits-${customer.id || customer._id}" class="hidden" style="margin-top:8px; border-top:1px solid #eee; padding-top:8px;">
-            ${depositRows || '<p style="font-size:12px; color:#888;">입금 내역이 없습니다.</p>'}
-          </div>
-        </div>
-      `;
-    });
-
-    // 비밀번호 확인 버튼 이벤트
-    document.querySelectorAll(".password-check").forEach(button => {
-      button.onclick = () => openPasswordModal(button.dataset.id);
-    });
-
-    // 입금 내역 토글 버튼 이벤트
-    document.querySelectorAll(".toggle-deposits-btn").forEach(button => {
-      button.onclick = () => {
-        const targetEl = document.getElementById(button.dataset.target);
-        if (targetEl) targetEl.classList.toggle("hidden");
-      };
-    });
-
-    // 입금 내역 수정 모달 열기 이벤트
-    document.querySelectorAll(".edit-deposit-btn").forEach(button => {
-      button.onclick = () => {
-        document.getElementById("edit-deposit-id").value = button.dataset.id;
-        document.getElementById("edit-deposit-customer-id").value = button.dataset.customerId;
-        document.getElementById("edit-deposit-amount").value = button.dataset.amount;
-        document.getElementById("edit-deposit-date").value = button.dataset.date;
-        document.getElementById("edit-deposit-note").value = button.dataset.note;
-        document.getElementById("edit-deposit-modal")?.classList.remove("hidden");
-      };
-    });
-  }
-
-  show("admin-dashboard");
-}
-
-// app.js 하단 이벤트 연결 부분
-
-// 수정 완료 버튼 클릭 이벤트
-document.getElementById("submit-edit-deposit-btn")?.addEventListener("click", async (e) => {
-  e.preventDefault(); // 페이지 새로고침 방지
-
-  const id = document.getElementById("edit-deposit-id").value;
-  const customerId = document.getElementById("edit-deposit-customer-id").value;
-  const amount = Number(document.getElementById("edit-deposit-amount").value);
-  const date = document.getElementById("edit-deposit-date").value;
-  const note = document.getElementById("edit-deposit-note").value;
-
-  if (!amount || amount <= 0) {
-    alert("올바른 입금액을 입력해주세요.");
-    return;
-  }
-
-  try {
-    // DB 저장 API 호출
-    await saveDepositToDB({
-      id: id,
-      customer_id: customerId,
-      amount: amount,
-      created_at: date,
-      date: date,
-      memo: note,
-      note: note
-    });
-
-    alert("입금 내역이 수정되었습니다.");
-    
-    // 모달 닫기
-    document.getElementById("edit-deposit-modal")?.classList.add("hidden");
-    
-    // 관리자 화면 재렌더링 (새로고침 없이 데이터 갱신)
-    await renderAdmin();
-
-  } catch (err) {
-    console.error("수정 실패:", err);
-    alert("수정 실패: " + err.message);
-  }
-});
-
-  // 입금 내역 삭제 버튼 클릭
-  document.getElementById("delete-deposit-btn")?.addEventListener("click", async () => {
-    const id = document.getElementById("edit-deposit-id").value;
-    if (!id) return;
-
-    if (confirm("정말로 이 입금 내역을 삭제하시겠습니까?")) {
-      try {
-        await deleteDepositFromDB(id);
-        alert("입금 내역이 삭제되었습니다.");
-        document.getElementById("edit-deposit-modal")?.classList.add("hidden");
-        await renderAdmin();
-      } catch (err) {
-        alert("삭제 실패: " + err.message);
-      }
-    }
-  });
-
-  // 수정 모달 닫기
-  document.getElementById("close-edit-deposit-modal")?.addEventListener("click", () => {
-    document.getElementById("edit-deposit-modal")?.classList.add("hidden");
-  });
