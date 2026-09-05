@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 2.5.0
- Fix : Native Browser Print PDF & Remove Customer Edit UI
+ Version 2.6.0
+ Fix : Removed Admin Action Buttons (+고객 등록, +입금 기록, 고객 정보 수정)
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
