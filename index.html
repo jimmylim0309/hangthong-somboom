@@ -264,10 +264,11 @@
 </html>
 
 <!-- 입금 내역 수정 모달 -->
+<!-- index.html 수정 -->
 <div id="edit-deposit-modal" class="modal hidden">
   <div class="modal-content">
     <h3>입금 내역 수정</h3>
-    <form id="edit-deposit-form">
+    <form id="edit-deposit-form" onsubmit="return false;"> <!-- 추가: submit 동작 방지 -->
       <input type="hidden" id="edit-deposit-id">
       <input type="hidden" id="edit-deposit-customer-id">
       
@@ -281,7 +282,8 @@
       <input type="text" id="edit-deposit-note">
       
       <div class="modal-buttons" style="margin-top: 15px; display: flex; gap: 8px;">
-        <button type="submit" class="primary-button">수정 완료</button>
+        <!-- type="button" 및 id="submit-edit-deposit-btn" 으로 변경 -->
+        <button type="button" id="submit-edit-deposit-btn" class="primary-button">수정 완료</button>
         <button type="button" id="delete-deposit-btn" class="danger-button" style="background-color: #dc3545; color: white;">삭제</button>
         <button type="button" id="close-edit-deposit-modal" class="secondary-button">취소</button>
       </div>
