@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 2.4.4
- Fix : Native Browser Print/PDF Download Implementation
+ Version 2.5.0
+ Fix : Native Browser Print PDF & Remove Customer Edit UI
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
@@ -210,7 +210,6 @@ async function renderCustomer() {
   show("customer-dashboard");
 }
 
-/* 1번 절차: 브라우저 인쇄창을 활용한 PDF 다운로드 로직 */
 function downloadDepositPDF() {
   const customer = cachedCustomers.find(c =>
     getCustomerId(c) === String(activeCustomerId)
@@ -334,11 +333,6 @@ async function renderAdmin() {
     depositSelect.innerHTML = `<option value="">고객을 선택하세요</option>` + options;
   }
 
-  const editSelect = document.getElementById("edit-customer-select");
-  if (editSelect) {
-    editSelect.innerHTML = `<option value="">수정할 고객 선택</option>` + options;
-  }
-
   const list = document.getElementById("admin-customer-list");
   if (list) {
     list.innerHTML = "";
@@ -441,10 +435,8 @@ function openPasswordModal(customerId) {
 =========================================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
-  /* PDF/인쇄 다운로드 버튼 이벤트 연동 */
   document.getElementById("download-pdf-btn")?.addEventListener("click", downloadDepositPDF);
 
-  /* 1. data-view 버튼을 통한 화면 전환 */
   document.querySelectorAll("[data-view]").forEach(btn => {
     btn.addEventListener("click", () => {
       const targetView = btn.dataset.view;
@@ -452,7 +444,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  /* 2. 관리자 대시보드 내 서브 패널 토글 */
   document.querySelectorAll("[data-panel]").forEach(btn => {
     btn.addEventListener("click", () => {
       const panelId = btn.dataset.panel;
@@ -463,14 +454,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  /* 3. 언어 변경 버튼 */
   document.querySelectorAll(".language-button").forEach(btn => {
     btn.addEventListener("click", () => {
       setLanguage(btn.dataset.language);
     });
   });
 
-  /* 4. 고객 로그인 제출 */
   document.getElementById("customer-login-form")?.addEventListener("submit", async e => {
     e.preventDefault();
     const phoneInput = document.getElementById("customer-phone");
@@ -492,7 +481,6 @@ document.addEventListener("DOMContentLoaded", () => {
     renderCustomer();
   });
 
-  /* 5. 관리자 로그인 제출 */
   document.getElementById("admin-login-form")?.addEventListener("submit", async e => {
     e.preventDefault();
     const passInput = document.getElementById("admin-password");
@@ -506,7 +494,6 @@ document.addEventListener("DOMContentLoaded", () => {
     await renderAdmin();
   });
 
-  /* 6. 신규 고객 등록 제출 */
   document.getElementById("new-customer-form")?.addEventListener("submit", async e => {
     e.preventDefault();
     const customers = await fetchCustomersFromDB();
@@ -537,7 +524,6 @@ document.addEventListener("DOMContentLoaded", () => {
     await renderAdmin();
   });
 
-  /* 7. 입금 기록 저장 제출 */
   document.getElementById("new-deposit-form")?.addEventListener("submit", async e => {
     e.preventDefault();
 
@@ -582,7 +568,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  /* 8. 입금 내역 수정 버튼 클릭 */
   document.getElementById("submit-edit-deposit-btn")?.addEventListener("click", async (e) => {
     e.preventDefault();
 
@@ -622,7 +607,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  /* 9. 입금 내역 삭제 버튼 클릭 */
   document.getElementById("delete-deposit-btn")?.addEventListener("click", async () => {
     const id = document.getElementById("edit-deposit-id").value;
     
@@ -643,12 +627,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  /* 10. 수정 모달 닫기 */
   document.getElementById("close-edit-deposit-modal")?.addEventListener("click", () => {
     document.getElementById("edit-deposit-modal")?.classList.add("hidden");
   });
 
-  /* 11. 관리자 비밀번호 확인 모달 제출 */
   document.getElementById("password-confirm-form")?.addEventListener("submit", e => {
     e.preventDefault();
     const passInput = document.getElementById("password-confirm-input");
@@ -669,7 +651,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("revealed-password")?.classList.remove("hidden");
   });
 
-  /* 12. 기타 버튼 이벤트 연동 (로그아웃, 모달 닫기 등) */
   document.getElementById("customer-logout")?.addEventListener("click", () => {
     activeCustomerId = null;
     document.getElementById("customer-login-form")?.reset();
@@ -683,11 +664,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("close-password-modal")?.addEventListener("click", closePasswordModal);
 
-  // 기본 입금 날짜 오늘로 설정
   const depositDate = document.getElementById("deposit-date");
   if (depositDate) depositDate.value = today();
 
-  // 초기화 실행
   setLanguage(language);
   fetchCustomersFromDB();
 });
