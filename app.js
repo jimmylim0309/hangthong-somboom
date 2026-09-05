@@ -467,3 +467,144 @@ document.addEventListener("DOMContentLoaded", () => {
   setLanguage(language);
   fetchCustomersFromDB();
 });
+
+async function deleteDepositFromDB(depositId) {
+  const res = await fetch("/.netlify/functions/delete-deposit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: depositId })
+  });
+  const result = await res.json();
+  if (!res.ok) {
+    throw new Error(result.error || "입금 삭제 실패");
+  }
+  return result;
+}
+
+async function renderAdmin() {
+  console.log("관리자 데이터 렌더링 중...");
+  const customers = await fetchCustomersFromDB();
+
+  const sorted = [...customers].sort((a, b) =>
+    String(a.serial || "").localeCompare(String(b.serial || ""), "ko", { numeric: true })
+  );
+
+  const countEl = document.getElementById("admin-customer-count");
+  if (countEl) countEl.textContent = customers.length + "명";
+
+  const list = document.getElementById("admin-customer-list");
+  if (list) {
+    list.innerHTML = "";
+    sorted.forEach(customer => {
+      const info = totals(customer);
+      
+      // 고객별 입금 내역 HTML 생성
+      const depositRows = (customer.deposits || []).map(d => `
+        <div style="display:flex; justify-space-between; align-items:center; background:#f8f9fa; padding:6px 10px; margin-top:4px; border-radius:4px; font-size:13px;">
+          <span>${formatDate(d.created_at || d.date)} | ${money(d.amount)} (${d.memo || d.note || '-'})</span>
+          <button type="button" class="edit-deposit-btn" 
+            data-id="${d.id}" 
+            data-customer-id="${customer.id || customer._id}"
+            data-amount="${d.amount}" 
+            data-date="${(d.created_at || d.date || '').slice(0, 10)}" 
+            data-note="${d.memo || d.note || ''}"
+            style="padding:2px 6px; font-size:11px;">수정</button>
+        </div>
+      `).join('');
+
+      list.innerHTML += `
+        <div class="customer-row" style="flex-direction:column; align-items:stretch; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <p><strong>${customer.name}</strong></p>
+              <small>${customer.serial || '미등록'} · ${customer.phone} · 입금 ${info.count}회</small>
+            </div>
+            <strong>${money(info.total)}</strong>
+          </div>
+          <div class="customer-buttons">
+            <button class="password-check" data-id="${customer.id || customer._id}">비밀번호 확인</button>
+            <button class="toggle-deposits-btn" data-target="deposits-${customer.id || customer._id}">입금 내역 관리 (${info.count})</button>
+          </div>
+          <div id="deposits-${customer.id || customer._id}" class="hidden" style="margin-top:8px; border-top:1px solid #eee; padding-top:8px;">
+            ${depositRows || '<p style="font-size:12px; color:#888;">입금 내역이 없습니다.</p>'}
+          </div>
+        </div>
+      `;
+    });
+
+    // 비밀번호 확인 버튼 이벤트
+    document.querySelectorAll(".password-check").forEach(button => {
+      button.onclick = () => openPasswordModal(button.dataset.id);
+    });
+
+    // 입금 내역 토글 버튼 이벤트
+    document.querySelectorAll(".toggle-deposits-btn").forEach(button => {
+      button.onclick = () => {
+        const targetEl = document.getElementById(button.dataset.target);
+        if (targetEl) targetEl.classList.toggle("hidden");
+      };
+    });
+
+    // 입금 내역 수정 모달 열기 이벤트
+    document.querySelectorAll(".edit-deposit-btn").forEach(button => {
+      button.onclick = () => {
+        document.getElementById("edit-deposit-id").value = button.dataset.id;
+        document.getElementById("edit-deposit-customer-id").value = button.dataset.customerId;
+        document.getElementById("edit-deposit-amount").value = button.dataset.amount;
+        document.getElementById("edit-deposit-date").value = button.dataset.date;
+        document.getElementById("edit-deposit-note").value = button.dataset.note;
+        document.getElementById("edit-deposit-modal")?.classList.remove("hidden");
+      };
+    });
+  }
+
+  show("admin-dashboard");
+}
+
+// 입금 내역 수정 제출
+  document.getElementById("edit-deposit-form")?.addEventListener("submit", async e => {
+    e.preventDefault();
+    const id = document.getElementById("edit-deposit-id").value;
+    const customerId = document.getElementById("edit-deposit-customer-id").value;
+    const amount = Number(document.getElementById("edit-deposit-amount").value);
+    const date = document.getElementById("edit-deposit-date").value;
+    const note = document.getElementById("edit-deposit-note").value;
+
+    try {
+      await saveDepositToDB({
+        id: id,
+        customer_id: customerId,
+        amount: amount,
+        created_at: date,
+        memo: note,
+        note: note
+      });
+      alert("입금 내역이 수정되었습니다.");
+      document.getElementById("edit-deposit-modal")?.classList.add("hidden");
+      await renderAdmin();
+    } catch (err) {
+      alert("수정 실패: " + err.message);
+    }
+  });
+
+  // 입금 내역 삭제 버튼 클릭
+  document.getElementById("delete-deposit-btn")?.addEventListener("click", async () => {
+    const id = document.getElementById("edit-deposit-id").value;
+    if (!id) return;
+
+    if (confirm("정말로 이 입금 내역을 삭제하시겠습니까?")) {
+      try {
+        await deleteDepositFromDB(id);
+        alert("입금 내역이 삭제되었습니다.");
+        document.getElementById("edit-deposit-modal")?.classList.add("hidden");
+        await renderAdmin();
+      } catch (err) {
+        alert("삭제 실패: " + err.message);
+      }
+    }
+  });
+
+  // 수정 모달 닫기
+  document.getElementById("close-edit-deposit-modal")?.addEventListener("click", () => {
+    document.getElementById("edit-deposit-modal")?.classList.add("hidden");
+  });
