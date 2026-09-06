@@ -5,6 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HANGTHONG SOMBOON GOLD SAVINGS</title>
     <link rel="stylesheet" href="style.css" />
+    <style>
+      /* 레이아웃 깨짐 방지를 위한 상단 요약 바 전용 스타일 추가 */
+      .admin-summary-card {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        padding: 16px;
+        margin: 15px 0;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        text-align: center;
+      }
+      .admin-summary-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .admin-summary-item .label {
+        font-size: 13px;
+        color: #666;
+      }
+      .admin-summary-item .value {
+        font-size: 20px;
+        font-weight: bold;
+        color: #333;
+      }
+      .admin-summary-item .value.highlight {
+        color: #d4af37;
+      }
+      .admin-summary-divider {
+        width: 1px;
+        height: 30px;
+        background-color: #dee2e6;
+      }
+    </style>
   </head>
   <body>
     <div class="app-container">
@@ -144,17 +180,16 @@
             <button id="admin-logout" class="btn-logout" data-i18n="logout">로그아웃</button>
           </div>
 
-          <!-- 기존 CSS 클래스를 동일하게 사용하여 디자인 깨짐 방지 -->
-          <div class="summary-card">
-            <div class="summary-grid">
-              <div class="summary-item">
-                <span class="label" data-i18n="registeredCustomers">등록 고객</span>
-                <strong id="admin-customer-count" class="value">0명</strong>
-              </div>
-              <div class="summary-item">
-                <span class="label" data-i18n="totalSystemSavings">총 적립 금액</span>
-                <strong id="admin-total-savings" class="value highlight">0원</strong>
-              </div>
+          <!-- 상단 현황 전용 스마트 요약 바 (안전한 인라인 전용 CSS) -->
+          <div class="admin-summary-card">
+            <div class="admin-summary-item">
+              <span class="label" data-i18n="registeredCustomers">등록 고객</span>
+              <strong id="admin-customer-count" class="value">0명</strong>
+            </div>
+            <div class="admin-summary-divider"></div>
+            <div class="admin-summary-item">
+              <span class="label" data-i18n="totalSystemSavings">총 적립 금액</span>
+              <strong id="admin-total-savings" class="value highlight">0원</strong>
             </div>
           </div>
 
