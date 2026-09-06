@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 2.8.0
- Fix: Multi-language (i18n) translation engine added
+ Version 2.9.0
+ Fix: Added total system savings display in Admin Dashboard
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
@@ -42,7 +42,7 @@ const translations = {
     customerManagement: "CUSTOMER MANAGEMENT",
     manageSavings: "고객 적립금 관리",
     addCustomerPlain: "고객 등록",
-    serial: "고객번호",
+    serial: "시리얼번호",
     customerName: "고객 이름",
     address: "주소",
     initialPassword: "초기 비밀번호",
@@ -55,14 +55,15 @@ const translations = {
     optional: "(선택)",
     saveDeposit: "입금 내역 저장",
     registeredCustomers: "등록 고객",
+    totalSystemSavings: "총 적립 금액",
     adminCheck: "관리자 확인",
     confirmAdmin: "고객 비밀번호를 확인하려면 관리자 비밀번호를 다시 입력해 주세요.",
     confirmPassword: "비밀번호 확인",
     customerPassword: "고객 비밀번호",
     // Placeholders
-    serialExample: "예: 1001",
+    serialExample: "예: 1001 또는 GOLD-001",
     nameExample: "홍길동",
-    addressExample: "예: 서울시 영등포구",
+    addressExample: "예: 방콕 수쿰윗 1",
     minFour: "4자 이상",
     amountExample: "예: 100000",
     cashDeposit: "예: 현금 입금"
@@ -106,6 +107,7 @@ const translations = {
     optional: "(เลือกได้)",
     saveDeposit: "บันทึกประวัติการฝาก",
     registeredCustomers: "ลูกค้าที่ลงทะเบียน",
+    totalSystemSavings: "ยอดออมรวมทั้งหมด",
     adminCheck: "ยืนยันผู้ดูแลระบบ",
     confirmAdmin: "กรุณากรอกรหัสผ่านผู้ดูแลระบบอีกครั้งเพื่อตรวจสอบรหัสผ่านของลูกค้า",
     confirmPassword: "ยืนยันรหัสผ่าน",
@@ -232,20 +234,17 @@ function show(id) {
   }
 }
 
-// 언어 변경 및 화면 텍스트 실시간 반영 함수
 function setLanguage(next) {
   language = next;
   localStorage.setItem("hangthong-language", language);
   document.documentElement.lang = language;
   
-  // 버튼 활성화 상태 변경
   document.querySelectorAll(".language-button").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.language === language);
   });
 
   const dict = translations[language] || translations.ko;
 
-  // 일반 텍스트 변환 (data-i18n)
   document.querySelectorAll("[data-i18n]").forEach(el => {
     const key = el.dataset.i18n;
     if (dict[key]) {
@@ -253,7 +252,6 @@ function setLanguage(next) {
     }
   });
 
-  // HTML 포함 텍스트 변환 (data-i18n-html)
   document.querySelectorAll("[data-i18n-html]").forEach(el => {
     const key = el.dataset.i18nHtml;
     if (dict[key]) {
@@ -261,7 +259,6 @@ function setLanguage(next) {
     }
   });
 
-  // 입력창 Placeholder 변환 (data-i18n-placeholder)
   document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
     const key = el.dataset.i18nPlaceholder;
     if (dict[key]) {
@@ -269,7 +266,6 @@ function setLanguage(next) {
     }
   });
 
-  // 로그인 상태인 경우 대시보드 새로고침
   if (activeCustomerId) {
     renderCustomer();
   }
@@ -456,8 +452,17 @@ async function renderAdmin() {
     String(a.serial || "").localeCompare(String(b.serial || ""), "ko", { numeric: true })
   );
 
+  // 총 고객 수 및 전체 시스템 총 적립 금액 계산
+  const totalSystemAmount = customers.reduce((sum, customer) => {
+    const info = totals(customer);
+    return sum + info.total;
+  }, 0);
+
   const countEl = document.getElementById("admin-customer-count");
-  if (countEl) countEl.textContent = customers.length + "명";
+  if (countEl) countEl.textContent = customers.length + (language === "th" ? " คน" : "명");
+
+  const totalSavingsEl = document.getElementById("admin-total-savings");
+  if (totalSavingsEl) totalSavingsEl.textContent = money(totalSystemAmount);
 
   const options = sorted.map(customer => {
     const id = getCustomerId(customer);
