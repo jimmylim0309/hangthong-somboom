@@ -42,7 +42,7 @@ const translations = {
     customerManagement: "CUSTOMER MANAGEMENT",
     manageSavings: "고객 적립금 관리",
     addCustomerPlain: "고객 등록",
-    serial: "시리얼번호",
+    serial: "고객번호",
     customerName: "고객 이름",
     address: "주소",
     initialPassword: "초기 비밀번호",
@@ -60,9 +60,9 @@ const translations = {
     confirmPassword: "비밀번호 확인",
     customerPassword: "고객 비밀번호",
     // Placeholders
-    serialExample: "예: 1001 또는 GOLD-001",
+    serialExample: "예: 1001",
     nameExample: "홍길동",
-    addressExample: "예: 방콕 수쿰윗 1",
+    addressExample: "예: 서울시 영등포구",
     minFour: "4자 이상",
     amountExample: "예: 100000",
     cashDeposit: "예: 현금 입금"
