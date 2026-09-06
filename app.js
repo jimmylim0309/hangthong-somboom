@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 3.1.0
- Fix: Isolated admin summary layout to prevent CSS distortion
+ Version 3.2.0
+ Fix: Responsive Admin Summary Stats Bar
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
@@ -272,7 +272,7 @@ function setLanguage(next) {
 }
 
 /* ===========================================================
-   RENDER LOGIC & PDF DOWNLOAD (ADMIN ONLY)
+   RENDER LOGIC
 =========================================================== */
 
 function totals(customer) {
@@ -452,12 +452,13 @@ async function renderAdmin() {
     String(a.serial || "").localeCompare(String(b.serial || ""), "ko", { numeric: true })
   );
 
-  // 전체 고객의 적립 금액 합산
+  // 시스템 전체 금액 계산
   const totalSystemAmount = customers.reduce((sum, customer) => {
     const info = totals(customer);
     return sum + info.total;
   }, 0);
 
+  // 상단 요약 바 업데이트
   const countEl = document.getElementById("admin-customer-count");
   if (countEl) countEl.textContent = customers.length + (language === "th" ? " คน" : "명");
 
@@ -706,7 +707,7 @@ document.addEventListener("DOMContentLoaded", () => {
         date: dateInput?.value || today()
       });
 
-      alert(language === "th" ? "บันทึกประวัติการฝากเรียบร้อยแล้ว" : "입금 내역이 저장되었습니다.");
+      alert(language === "th" ? "บันทึกประวัติการฝากเรียบร้อยแล้ว" : "บันทึกข้อมูลเรียบร้อยแล้ว");
       e.target.reset();
       if (dateInput) dateInput.value = today();
       document.getElementById("new-deposit-form")?.classList.add("hidden");
