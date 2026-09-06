@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 2.7.0
- Change: Moved PDF Download Feature to Admin Dashboard Only
+ Version 2.8.0
+ Fix: Multi-language (i18n) translation engine added
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
@@ -10,6 +10,115 @@ let activeCustomerId = null;
 let passwordCustomerId = null;
 let cachedCustomers = [];
 let language = localStorage.getItem("hangthong-language") || "ko";
+
+/* ===========================================================
+   i18n TRANSLATION DICTIONARY
+=========================================================== */
+
+const translations = {
+  ko: {
+    adminLogin: "관리자 로그인",
+    loginTitle: "나의 금 적립금을<br />확인하세요.",
+    loginDescription: "전화번호와 관리자에게 받은 비밀번호를 입력해 주세요.",
+    phone: "전화번호",
+    password: "비밀번호",
+    viewSavings: "내 적립금 보기",
+    forgotPassword: "비밀번호를 잊으셨다면 매장 관리자에게 문의해 주세요.",
+    logout: "로그아웃",
+    mySavings: "MY SAVINGS",
+    customerTitle: "님의<br />금 적립 현황",
+    depositAccount: "입금 계좌",
+    bankName: "우리은행",
+    accountHolder: "예금주 BANSOMBOON",
+    totalSavings: "총 적립금",
+    depositCount: "입금 횟수",
+    recentDeposit: "최근 입금일",
+    depositHistory: "입금 내역",
+    adminOnly: "ADMIN ONLY",
+    adminPage: "관리자 페이지",
+    adminDescription: "관리자 비밀번호를 입력해 주세요.",
+    adminPassword: "관리자 비밀번호",
+    login: "로그인",
+    customerManagement: "CUSTOMER MANAGEMENT",
+    manageSavings: "고객 적립금 관리",
+    addCustomerPlain: "고객 등록",
+    serial: "시리얼번호",
+    customerName: "고객 이름",
+    address: "주소",
+    initialPassword: "초기 비밀번호",
+    registerCustomer: "고객 등록하기",
+    recordDepositPlain: "입금 기록",
+    customer: "고객",
+    depositAmount: "입금 금액",
+    depositDate: "입금 날짜",
+    memo: "메모",
+    optional: "(선택)",
+    saveDeposit: "입금 내역 저장",
+    registeredCustomers: "등록 고객",
+    adminCheck: "관리자 확인",
+    confirmAdmin: "고객 비밀번호를 확인하려면 관리자 비밀번호를 다시 입력해 주세요.",
+    confirmPassword: "비밀번호 확인",
+    customerPassword: "고객 비밀번호",
+    // Placeholders
+    serialExample: "예: 1001 또는 GOLD-001",
+    nameExample: "홍길동",
+    addressExample: "예: 방콕 수쿰윗 1",
+    minFour: "4자 이상",
+    amountExample: "예: 100000",
+    cashDeposit: "예: 현금 입금"
+  },
+  th: {
+    adminLogin: "เข้าสู่ระบบผู้ดูแล",
+    loginTitle: "ตรวจสอบเงินออมทอง<br />ของคุณ",
+    loginDescription: "กรุณากรอกหมายเลขโทรศัพท์และรหัสผ่านที่ได้รับจากผู้ดูแล",
+    phone: "หมายเลขโทรศัพท์",
+    password: "รหัสผ่าน",
+    viewSavings: "ดูเงินออมของฉัน",
+    forgotPassword: "หากลืมรหัสผ่าน กรุณาติดต่อผู้ดูแลร้าน",
+    logout: "ออกจากระบบ",
+    mySavings: "MY SAVINGS",
+    customerTitle: "<br />สถานะการออมทอง",
+    depositAccount: "บัญชีโอนเงิน",
+    bankName: "ธนาคารอูรี (Woori Bank)",
+    accountHolder: "ชื่อบัญชี BANSOMBOON",
+    totalSavings: "ยอดออมรวม",
+    depositCount: "จำนวนครั้งที่ฝาก",
+    recentDeposit: "วันที่ฝากล่าสุด",
+    depositHistory: "ประวัติการฝากเงิน",
+    adminOnly: "ADMIN ONLY",
+    adminPage: "หน้าผู้ดูแลระบบ",
+    adminDescription: "กรุณากรอกรหัสผ่านผู้ดูแลระบบ",
+    adminPassword: "รหัสผ่านผู้ดูแล",
+    login: "เข้าสู่ระบบ",
+    customerManagement: "CUSTOMER MANAGEMENT",
+    manageSavings: "จัดการเงินออมลูกค้า",
+    addCustomerPlain: "ลงทะเบียนลูกค้า",
+    serial: "หมายเลขซีเรียล",
+    customerName: "ชื่อลูกค้า",
+    address: "ที่อยู่",
+    initialPassword: "รหัสผ่านเริ่มต้น",
+    registerCustomer: "ลงทะเบียนลูกค้า",
+    recordDepositPlain: "บันทึกการฝากเงิน",
+    customer: "ลูกค้า",
+    depositAmount: "จำนวนเงินฝาก",
+    depositDate: "วันที่ฝาก",
+    memo: "บันทึกช่วยจำ",
+    optional: "(เลือกได้)",
+    saveDeposit: "บันทึกประวัติการฝาก",
+    registeredCustomers: "ลูกค้าที่ลงทะเบียน",
+    adminCheck: "ยืนยันผู้ดูแลระบบ",
+    confirmAdmin: "กรุณากรอกรหัสผ่านผู้ดูแลระบบอีกครั้งเพื่อตรวจสอบรหัสผ่านของลูกค้า",
+    confirmPassword: "ยืนยันรหัสผ่าน",
+    customerPassword: "รหัสผ่านลูกค้า",
+    // Placeholders
+    serialExample: "ตัวอย่าง: 1001 หรือ GOLD-001",
+    nameExample: "ชื่อ-นามสกุล",
+    addressExample: "ตัวอย่าง: กรุงเทพฯ สุขุมวิท 1",
+    minFour: "4 ตัวอักษรขึ้นไป",
+    amountExample: "ตัวอย่าง: 100000",
+    cashDeposit: "ตัวอย่าง: เงินสด"
+  }
+};
 
 /* ===========================================================
    COMMON UTILS
@@ -123,13 +232,44 @@ function show(id) {
   }
 }
 
+// 언어 변경 및 화면 텍스트 실시간 반영 함수
 function setLanguage(next) {
   language = next;
   localStorage.setItem("hangthong-language", language);
   document.documentElement.lang = language;
+  
+  // 버튼 활성화 상태 변경
   document.querySelectorAll(".language-button").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.language === language);
   });
+
+  const dict = translations[language] || translations.ko;
+
+  // 일반 텍스트 변환 (data-i18n)
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const key = el.dataset.i18n;
+    if (dict[key]) {
+      el.textContent = dict[key];
+    }
+  });
+
+  // HTML 포함 텍스트 변환 (data-i18n-html)
+  document.querySelectorAll("[data-i18n-html]").forEach(el => {
+    const key = el.dataset.i18nHtml;
+    if (dict[key]) {
+      el.innerHTML = dict[key];
+    }
+  });
+
+  // 입력창 Placeholder 변환 (data-i18n-placeholder)
+  document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+    const key = el.dataset.i18nPlaceholder;
+    if (dict[key]) {
+      el.placeholder = dict[key];
+    }
+  });
+
+  // 로그인 상태인 경우 대시보드 새로고침
   if (activeCustomerId) {
     renderCustomer();
   }
@@ -177,14 +317,14 @@ async function renderCustomer() {
 
   if (nameEl) nameEl.textContent = customer.name;
   if (totalEl) totalEl.textContent = money(info.total);
-  if (countEl) countEl.textContent = info.count + "회";
+  if (countEl) countEl.textContent = info.count + (language === "th" ? " ครั้ง" : "회");
   if (recentEl) recentEl.textContent = info.recent ? formatDate(info.recent.created_at || info.recent.date) : "-";
 
   const list = document.getElementById("customer-deposit-list");
   if (list) {
     list.innerHTML = "";
     if (!customer.deposits || customer.deposits.length === 0) {
-      list.innerHTML = "<p class='empty'>입금 내역이 없습니다.</p>";
+      list.innerHTML = `<p class='empty'>${language === "th" ? "ไม่มีประวัติการฝากเงิน" : "입금 내역이 없습니다."}</p>`;
     } else {
       [...customer.deposits]
         .sort((a, b) => {
@@ -210,7 +350,6 @@ async function renderCustomer() {
   show("customer-dashboard");
 }
 
-// 관리자 전용 PDF 다운로드 함수
 function downloadDepositPDF(customerId) {
   const customer = cachedCustomers.find(c =>
     getCustomerId(c) === String(customerId)
@@ -477,7 +616,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!found) {
       const errEl = document.getElementById("customer-login-error");
-      if (errEl) errEl.textContent = "전화번호 또는 비밀번호를 확인해주세요.";
+      if (errEl) errEl.textContent = language === "th" ? "กรุณาตรวจสอบหมายเลขโทรศัพท์หรือรหัสผ่าน" : "전화번호 또는 비밀번호를 확인해주세요.";
       return;
     }
 
@@ -491,7 +630,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (passInput?.value !== ADMIN_PASSWORD) {
       const errEl = document.getElementById("admin-login-error");
-      if (errEl) errEl.textContent = "관리자 비밀번호가 올바르지 않습니다.";
+      if (errEl) errEl.textContent = language === "th" ? "รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง" : "관리자 비밀번호가 올바르지 않습니다.";
       return;
     }
 
@@ -505,12 +644,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const phoneNumber = phone(document.getElementById("new-phone")?.value);
 
     if (customers.some(c => c.phone === phoneNumber)) {
-      alert("이미 등록된 전화번호입니다.");
+      alert(language === "th" ? "หมายเลขโทรศัพท์นี้ถูกลงทะเบียนแล้ว" : "이미 등록된 전화번호입니다.");
       return;
     }
 
     if (serial && customers.some(c => c.serial === serial)) {
-      alert("이미 등록된 시리얼번호입니다.");
+      alert(language === "th" ? "หมายเลขซีเรียลนี้ถูกลงทะเบียนแล้ว" : "이미 등록된 시리얼번호입니다.");
       return;
     }
 
@@ -522,7 +661,7 @@ document.addEventListener("DOMContentLoaded", () => {
       password: document.getElementById("new-password")?.value || ""
     });
 
-    alert("고객 등록 완료");
+    alert(language === "th" ? "ลงทะเบียนลูกค้าเรียบร้อยแล้ว" : "고객 등록 완료");
     e.target.reset();
     document.getElementById("new-customer-form")?.classList.add("hidden");
     await renderAdmin();
@@ -535,7 +674,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const customerId = customerSelect?.value;
 
     if (!customerId) {
-      alert("입금할 고객을 선택하세요.");
+      alert(language === "th" ? "กรุณาเลือกลูกค้า" : "입금할 고객을 선택하세요.");
       return;
     }
 
@@ -545,7 +684,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const amount = Number(amountInput?.value || 0);
     if (!amount || amount <= 0) {
-      alert("입금 금액을 입력하세요.");
+      alert(language === "th" ? "กรุณากรอกจำนวนเงินฝาก" : "입금 금액을 입력하세요.");
       return;
     }
 
@@ -562,13 +701,13 @@ document.addEventListener("DOMContentLoaded", () => {
         date: dateInput?.value || today()
       });
 
-      alert("입금 내역이 저장되었습니다.");
+      alert(language === "th" ? "บันทึกประวัติการฝากเรียบร้อยแล้ว" : "입금 내역이 저장되었습니다.");
       e.target.reset();
       if (dateInput) dateInput.value = today();
       document.getElementById("new-deposit-form")?.classList.add("hidden");
       await renderAdmin();
     } catch (err) {
-      alert("입금 저장 실패: " + err.message);
+      alert((language === "th" ? "บันทึกล้มเหลว: " : "입금 저장 실패: ") + err.message);
     }
   });
 
@@ -602,7 +741,7 @@ document.addEventListener("DOMContentLoaded", () => {
         note: note
       });
 
-      alert("입금 내역이 수정되었습니다.");
+      alert(language === "th" ? "แก้ไขข้อมูลเรียบร้อยแล้ว" : "입금 내역이 수정되었습니다.");
       document.getElementById("edit-deposit-modal")?.classList.add("hidden");
       await renderAdmin();
     } catch (err) {
@@ -619,10 +758,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if (confirm("정말로 이 입금 내역을 삭제하시겠습니까?")) {
+    if (confirm(language === "th" ? "คุณต้องการลบรายการนี้ใช่หรือไม่?" : "정말로 이 입금 내역을 삭제하시겠습니까?")) {
       try {
         await deleteDepositFromDB(id);
-        alert("입금 내역이 삭제되었습니다.");
+        alert(language === "th" ? "ลบรายการเรียบร้อยแล้ว" : "입금 내역이 삭제되었습니다.");
         document.getElementById("edit-deposit-modal")?.classList.add("hidden");
         await renderAdmin();
       } catch (err) {
@@ -641,7 +780,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const errEl = document.getElementById("password-confirm-error");
 
     if (passInput?.value !== ADMIN_PASSWORD) {
-      if (errEl) errEl.textContent = "관리자 비밀번호가 올바르지 않습니다.";
+      if (errEl) errEl.textContent = language === "th" ? "รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง" : "관리자 비밀번호가 올바르지 않습니다.";
       return;
     }
 
