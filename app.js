@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 3.0.0
- Fix: Updated Admin layout UI elements to use existing CSS classes
+ Version 3.1.0
+ Fix: Isolated admin summary layout to prevent CSS distortion
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
