@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 2.9.0
- Fix: Added total system savings display in Admin Dashboard
+ Version 3.0.0
+ Fix: Updated Admin layout UI elements to use existing CSS classes
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
@@ -452,7 +452,7 @@ async function renderAdmin() {
     String(a.serial || "").localeCompare(String(b.serial || ""), "ko", { numeric: true })
   );
 
-  // 총 고객 수 및 전체 시스템 총 적립 금액 계산
+  // 전체 고객의 적립 금액 합산
   const totalSystemAmount = customers.reduce((sum, customer) => {
     const info = totals(customer);
     return sum + info.total;
