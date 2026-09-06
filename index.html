@@ -6,39 +6,41 @@
     <title>HANGTHONG SOMBOON GOLD SAVINGS</title>
     <link rel="stylesheet" href="style.css" />
     <style>
-      /* 레이아웃 깨짐 방지를 위한 상단 요약 바 전용 스타일 추가 */
-      .admin-summary-card {
-        background: #f8f9fa;
-        border: 1px solid #e9ecef;
+      /* 레이아웃 깨짐 방지를 위한 관리자 대시보드 전용 요약 카드 스타일 */
+      .admin-stats-box {
+        background: #fafaa61a;
+        background-color: rgba(212, 175, 55, 0.08);
+        border: 1px solid rgba(212, 175, 55, 0.3);
         border-radius: 12px;
-        padding: 16px;
-        margin: 15px 0;
+        padding: 16px 20px;
+        margin: 15px 0 20px 0;
         display: flex;
         justify-content: space-around;
         align-items: center;
         text-align: center;
       }
-      .admin-summary-item {
+      .admin-stats-item {
         display: flex;
         flex-direction: column;
         gap: 4px;
+        flex: 1;
       }
-      .admin-summary-item .label {
+      .admin-stats-item .stats-label {
         font-size: 13px;
         color: #666;
       }
-      .admin-summary-item .value {
+      .admin-stats-item .stats-value {
         font-size: 20px;
         font-weight: bold;
-        color: #333;
+        color: #222;
       }
-      .admin-summary-item .value.highlight {
+      .admin-stats-item .stats-value.gold {
         color: #d4af37;
       }
-      .admin-summary-divider {
+      .admin-stats-divider {
         width: 1px;
-        height: 30px;
-        background-color: #dee2e6;
+        height: 32px;
+        background-color: rgba(0, 0, 0, 0.1);
       }
     </style>
   </head>
@@ -180,16 +182,16 @@
             <button id="admin-logout" class="btn-logout" data-i18n="logout">로그아웃</button>
           </div>
 
-          <!-- 상단 현황 전용 스마트 요약 바 (안전한 인라인 전용 CSS) -->
-          <div class="admin-summary-card">
-            <div class="admin-summary-item">
-              <span class="label" data-i18n="registeredCustomers">등록 고객</span>
-              <strong id="admin-customer-count" class="value">0명</strong>
+          <!-- 전체 등록고객 수 및 입금 전체 금액 상단 요약 바 -->
+          <div class="admin-stats-box">
+            <div class="admin-stats-item">
+              <span class="stats-label" data-i18n="registeredCustomers">등록 고객</span>
+              <strong id="admin-customer-count" class="stats-value">0명</strong>
             </div>
-            <div class="admin-summary-divider"></div>
-            <div class="admin-summary-item">
-              <span class="label" data-i18n="totalSystemSavings">총 적립 금액</span>
-              <strong id="admin-total-savings" class="value highlight">0원</strong>
+            <div class="admin-stats-divider"></div>
+            <div class="admin-stats-item">
+              <span class="stats-label" data-i18n="totalSystemSavings">총 적립 금액</span>
+              <strong id="admin-total-savings" class="stats-value gold">0원</strong>
             </div>
           </div>
 
@@ -259,7 +261,6 @@
 
           <!-- 등록된 고객 목록 -->
           <div class="customer-list-section">
-            <h3 data-i18n="registeredCustomers">등록 고객</h3>
             <div id="admin-customer-list" class="admin-customer-list">
               <!-- JS로 고객 목록 및 입금 관리 내역 렌더링 -->
             </div>
