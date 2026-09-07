@@ -461,7 +461,7 @@ async function renderAdmin() {
   const countEl = document.getElementById("admin-customer-count");
   if (countEl) countEl.textContent = customers.length + (language === "th" ? " คน" : "명");
 
-  const totalSavingsEl = document.getElementById("admin-total-savings");
+  const totalSavingsEl = document.getElementById("admin-total-amount");
   if (totalSavingsEl) totalSavingsEl.textContent = money(totalSystemAmount);
 
   const options = sorted.map(customer => {
