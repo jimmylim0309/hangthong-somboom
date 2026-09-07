@@ -134,7 +134,7 @@ const money = value =>
   new Intl.NumberFormat(
     language === "th" ? "th-TH" : "ko-KR"
   ).format(Number(value || 0)) +
-  (language === "th" ? " บาท" : "원");
+  (language === "th" ? " วอน" : "원");
 
 const formatDate = value => {
   if (!value) return "-";
