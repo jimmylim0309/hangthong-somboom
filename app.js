@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 3.2.0
- Fix: Responsive Admin Summary Stats Bar
+ Version 3.3.0
+ Fix: Currency Unit Fixed to KRW (원) Across All Languages
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
@@ -130,11 +130,9 @@ const phone = value => (value || "").replace(/[^0-9]/g, "");
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+// 태국어 모드여도 금액 표시는 항상 '원'으로 고정
 const money = value =>
-  new Intl.NumberFormat(
-    language === "th" ? "th-TH" : "ko-KR"
-  ).format(Number(value || 0)) +
-  (language === "th" ? " วอน" : "원");
+  new Intl.NumberFormat("ko-KR").format(Number(value || 0)) + "원";
 
 const formatDate = value => {
   if (!value) return "-";
@@ -452,13 +450,11 @@ async function renderAdmin() {
     String(a.serial || "").localeCompare(String(b.serial || ""), "ko", { numeric: true })
   );
 
-  // 시스템 전체 금액 계산
   const totalSystemAmount = customers.reduce((sum, customer) => {
     const info = totals(customer);
     return sum + info.total;
   }, 0);
 
-  // 상단 요약 바 업데이트
   const countEl = document.getElementById("admin-customer-count");
   if (countEl) countEl.textContent = customers.length + (language === "th" ? " คน" : "명");
 
