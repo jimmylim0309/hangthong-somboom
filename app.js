@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 2.9.0
- Fix: Added total system savings display in Admin Dashboard
+ Version 2.9.2
+ Fix: Removed deposit account info from customer view & translation dictionary
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
@@ -27,9 +27,6 @@ const translations = {
     logout: "로그아웃",
     mySavings: "MY SAVINGS",
     customerTitle: "님의<br />금 적립 현황",
-    depositAccount: "입금 계좌",
-    bankName: "우리은행",
-    accountHolder: "예금주 BANSOMBOON",
     totalSavings: "총 적립금",
     depositCount: "입금 횟수",
     recentDeposit: "최근 입금일",
@@ -55,7 +52,7 @@ const translations = {
     optional: "(선택)",
     saveDeposit: "입금 내역 저장",
     registeredCustomers: "등록 고객",
-    totalSystemSavings: "총 적립 금액",
+    adminTotalSavings: "전체 고객 총 적립금",
     adminCheck: "관리자 확인",
     confirmAdmin: "고객 비밀번호를 확인하려면 관리자 비밀번호를 다시 입력해 주세요.",
     confirmPassword: "비밀번호 확인",
@@ -79,9 +76,6 @@ const translations = {
     logout: "ออกจากระบบ",
     mySavings: "MY SAVINGS",
     customerTitle: "<br />สถานะการออมทอง",
-    depositAccount: "บัญชีโอนเงิน",
-    bankName: "ธนาคารอูรี (Woori Bank)",
-    accountHolder: "ชื่อบัญชี BANSOMBOON",
     totalSavings: "ยอดออมรวม",
     depositCount: "จำนวนครั้งที่ฝาก",
     recentDeposit: "วันที่ฝากล่าสุด",
@@ -107,7 +101,7 @@ const translations = {
     optional: "(เลือกได้)",
     saveDeposit: "บันทึกประวัติการฝาก",
     registeredCustomers: "ลูกค้าที่ลงทะเบียน",
-    totalSystemSavings: "ยอดออมรวมทั้งหมด",
+    adminTotalSavings: "ยอดออมรวมทั้งหมดของลูกค้า",
     adminCheck: "ยืนยันผู้ดูแลระบบ",
     confirmAdmin: "กรุณากรอกรหัสผ่านผู้ดูแลระบบอีกครั้งเพื่อตรวจสอบรหัสผ่านของลูกค้า",
     confirmPassword: "ยืนยันรหัสผ่าน",
@@ -404,7 +398,7 @@ function downloadDepositPDF(customerId) {
       </head>
       <body>
         <div class="header">
-          <h2>HANGTHONG SOMBOON GOLD SAVINGS</h2>
+          2026 HANGTHONG SOMBOON GOLD SAVINGS
           <h3>입금/송금 내역서</h3>
         </div>
         
@@ -452,7 +446,6 @@ async function renderAdmin() {
     String(a.serial || "").localeCompare(String(b.serial || ""), "ko", { numeric: true })
   );
 
-  // 총 고객 수 및 전체 시스템 총 적립 금액 계산
   const totalSystemAmount = customers.reduce((sum, customer) => {
     const info = totals(customer);
     return sum + info.total;
