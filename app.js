@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 3.3.0
- Fix: Currency Unit Fixed to KRW (원) Across All Languages
+ Version 3.3.1
+ Fix: Initial Load Screen & Element Null Handling Fix
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
@@ -60,7 +60,6 @@ const translations = {
     confirmAdmin: "고객 비밀번호를 확인하려면 관리자 비밀번호를 다시 입력해 주세요.",
     confirmPassword: "비밀번호 확인",
     customerPassword: "고객 비밀번호",
-    // Placeholders
     serialExample: "예: 1001 또는 GOLD-001",
     nameExample: "홍길동",
     addressExample: "예: 방콕 수쿰윗 1",
@@ -112,7 +111,6 @@ const translations = {
     confirmAdmin: "กรุณากรอกรหัสผ่านผู้ดูแลระบบอีกครั้งเพื่อตรวจสอบรหัสผ่านของลูกค้า",
     confirmPassword: "ยืนยันรหัสผ่าน",
     customerPassword: "รหัสผ่านลูกค้า",
-    // Placeholders
     serialExample: "ตัวอย่าง: 1001 หรือ GOLD-001",
     nameExample: "ชื่อ-นามสกุล",
     addressExample: "ตัวอย่าง: กรุงเทพฯ สุขุมวิท 1",
@@ -219,7 +217,6 @@ async function deleteDepositFromDB(depositId) {
 =========================================================== */
 
 function show(id) {
-  console.log("화면 전환 ->", id);
   document.querySelectorAll(".screen").forEach(screen => {
     screen.classList.add("hidden");
   });
@@ -227,8 +224,6 @@ function show(id) {
   const target = document.getElementById(id);
   if (target) {
     target.classList.remove("hidden");
-  } else {
-    console.error(`ID가 '${id}'인 화면 요소를 찾을 수 없습니다.`);
   }
 }
 
@@ -443,7 +438,6 @@ function downloadDepositPDF(customerId) {
 }
 
 async function renderAdmin() {
-  console.log("관리자 데이터 렌더링 중...");
   const customers = await fetchCustomersFromDB();
 
   const sorted = [...customers].sort((a, b) =>
@@ -536,11 +530,18 @@ async function renderAdmin() {
 
     document.querySelectorAll(".edit-deposit-btn").forEach(button => {
       button.onclick = () => {
-        document.getElementById("edit-deposit-id").value = button.dataset.id;
-        document.getElementById("edit-deposit-customer-id").value = button.dataset.customerId;
-        document.getElementById("edit-deposit-amount").value = button.dataset.amount;
-        document.getElementById("edit-deposit-date").value = button.dataset.date;
-        document.getElementById("edit-deposit-note").value = button.dataset.note;
+        const editId = document.getElementById("edit-deposit-id");
+        const editCId = document.getElementById("edit-deposit-customer-id");
+        const editAmt = document.getElementById("edit-deposit-amount");
+        const editDate = document.getElementById("edit-deposit-date");
+        const editNote = document.getElementById("edit-deposit-note");
+
+        if (editId) editId.value = button.dataset.id;
+        if (editCId) editCId.value = button.dataset.customerId;
+        if (editAmt) editAmt.value = button.dataset.amount;
+        if (editDate) editDate.value = button.dataset.date;
+        if (editNote) editNote.value = button.dataset.note;
+        
         document.getElementById("edit-deposit-modal")?.classList.remove("hidden");
       };
     });
@@ -578,14 +579,18 @@ function openPasswordModal(customerId) {
 }
 
 /* ===========================================================
-   EVENT BINDING (INIT)
+   EVENT BINDING & INIT
 =========================================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
+  // 1. 초기 화면 및 언어 세팅
+  show("customer-login");
+  setLanguage(language);
+
+  // 2. 이벤트 리스너 등록
   document.querySelectorAll("[data-view]").forEach(btn => {
     btn.addEventListener("click", () => {
-      const targetView = btn.dataset.view;
-      show(targetView);
+      show(btn.dataset.view);
     });
   });
 
@@ -716,11 +721,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("submit-edit-deposit-btn")?.addEventListener("click", async (e) => {
     e.preventDefault();
 
-    const id = document.getElementById("edit-deposit-id").value;
-    const customerId = document.getElementById("edit-deposit-customer-id").value;
-    const amount = Number(document.getElementById("edit-deposit-amount").value);
-    const date = document.getElementById("edit-deposit-date").value;
-    const note = document.getElementById("edit-deposit-note").value;
+    const id = document.getElementById("edit-deposit-id")?.value;
+    const customerId = document.getElementById("edit-deposit-customer-id")?.value;
+    const amount = Number(document.getElementById("edit-deposit-amount")?.value);
+    const date = document.getElementById("edit-deposit-date")?.value;
+    const note = document.getElementById("edit-deposit-note")?.value;
 
     if (!id || id === "undefined" || id === "null") {
       alert("수정할 입금 내역의 ID가 올바르지 않습니다.");
@@ -753,7 +758,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById("delete-deposit-btn")?.addEventListener("click", async () => {
-    const id = document.getElementById("edit-deposit-id").value;
+    const id = document.getElementById("edit-deposit-id")?.value;
     
     if (!id || id === "undefined" || id === "null") {
       alert("삭제할 입금 내역의 고유 ID가 없습니다.");
@@ -812,6 +817,5 @@ document.addEventListener("DOMContentLoaded", () => {
   const depositDate = document.getElementById("deposit-date");
   if (depositDate) depositDate.value = today();
 
-  setLanguage(language);
   fetchCustomersFromDB();
 });
