@@ -134,7 +134,13 @@
         <div class="page-content admin-page">
           <p class="eyebrow" data-i18n="customerManagement">CUSTOMER MANAGEMENT</p>
           <h1 data-i18n="manageSavings">고객 적립금 관리</h1>
-
+ 
+          <!-- 관리자 총 적립금 표시 카드 추가 -->
+          <article class="total-card" style="margin-bottom: 20px;">
+              <span>전체 고객 총 적립금</span>
+              <strong id="admin-total-amount">0원</strong>
+          </article>
+         
           <!-- 신규 고객 등록 폼 -->
           <form id="new-customer-form" class="manager-form hidden">
             <h2 data-i18n="addCustomerPlain">고객 등록</h2>
