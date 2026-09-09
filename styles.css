@@ -547,3 +547,36 @@ input:focus, select:focus {
     min-height: calc(100vh - 36px);
   }
 }
+/* 오른쪽 하단 소셜 미디어 고정 아이콘 */
+.social-floating-bar {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.social-floating-bar a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1cm;
+  height: 1cm;
+  background-color: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-decoration: none;
+}
+
+.social-floating-bar a:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+.social-floating-bar svg {
+  width: 60%;
+  height: 60%;
+}
