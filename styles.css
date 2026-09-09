@@ -548,38 +548,39 @@ input:focus, select:focus {
   }
 }
 
-/* 오른쪽 하단 소셜 미디어 고정 아이콘 (이미지 스타일 정의) */
+/* 오른쪽 하단 소셜 미디어 고정 아이콘 (픽셀 단위 및 레이어 최우선 적용) */
 .social-floating-bar {
   position: fixed;
-  bottom: 20px;
+  bottom: 24px;
   right: 20px;
-  z-index: 9999;
+  z-index: 99999;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .social-floating-bar a {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1cm;
-  height: 1cm;
+  width: 44px;
+  height: 44px;
   background-color: #ffffff;
   border-radius: 50%;
   overflow: hidden;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   text-decoration: none;
 }
 
 .social-floating-bar a:hover {
   transform: translateY(-3px);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
 .social-floating-bar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
