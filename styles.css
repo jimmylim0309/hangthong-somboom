@@ -547,7 +547,8 @@ input:focus, select:focus {
     min-height: calc(100vh - 36px);
   }
 }
-/* 오른쪽 하단 소셜 미디어 고정 아이콘 */
+
+/* 오른쪽 하단 소셜 미디어 고정 아이콘 (이미지 스타일 정의) */
 .social-floating-bar {
   position: fixed;
   bottom: 20px;
@@ -566,6 +567,7 @@ input:focus, select:focus {
   height: 1cm;
   background-color: #ffffff;
   border-radius: 50%;
+  overflow: hidden;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   text-decoration: none;
@@ -576,7 +578,8 @@ input:focus, select:focus {
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
 }
 
-.social-floating-bar svg {
-  width: 60%;
-  height: 60%;
+.social-floating-bar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
