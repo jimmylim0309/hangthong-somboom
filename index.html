@@ -6,6 +6,81 @@
     <meta name="theme-color" content="#7b0712" />
     <title>Hangthong Somboon</title>
     <link rel="stylesheet" href="styles.css" />
+    <style>
+      /* 고객 삭제 버튼 및 확인 모달 스타일 */
+      .customer-card-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .delete-customer-btn {
+        background-color: #fff1f2;
+        color: #be123c;
+        border: 1px solid #fecdd3;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .delete-customer-btn:hover {
+        background-color: #ffe4e6;
+        border-color: #fda4af;
+      }
+
+      .danger-button {
+        background-color: #dc2626;
+        color: #ffffff;
+        border: none;
+        padding: 12px 16px;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        flex: 1;
+        transition: background-color 0.2s ease;
+      }
+
+      .danger-button:hover {
+        background-color: #b91c1c;
+      }
+
+      .secondary-button {
+        background-color: #f3f4f6;
+        color: #374151;
+        border: 1px solid #d1d5db;
+        padding: 12px 16px;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        flex: 1;
+        transition: background-color 0.2s ease;
+      }
+
+      .secondary-button:hover {
+        background-color: #e5e7eb;
+      }
+
+      .modal-action-row {
+        display: flex;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .delete-warning-box {
+        background-color: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 12px;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        line-height: 1.45;
+        margin: 12px 0;
+      }
+    </style>
   </head>
   <body>
     <main class="app-shell">
@@ -188,6 +263,7 @@
               <h2 data-i18n="registeredCustomers">등록 고객</h2>
               <span id="admin-customer-count"></span>
             </div>
+            <!-- app.js에서 각 고객 카드 렌더링 시 .delete-customer-btn 버튼이 자동 배치되거나 연동됨 -->
             <div id="admin-customer-list" class="customer-list"></div>
           </section>
         </div>
@@ -212,6 +288,30 @@
             <span data-i18n="customerPassword">고객 비밀번호</span>
             <strong id="revealed-password-value"></strong>
           </div>
+        </div>
+      </div>
+
+      <!-- 고객 삭제 확인 모달 (신규 추가) -->
+      <div id="delete-customer-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="delete-customer-modal-title">
+        <div class="modal-card">
+          <button id="close-delete-customer-modal" class="modal-close" aria-label="닫기">×</button>
+          <p class="eyebrow" style="color: #dc2626;">DELETE CUSTOMER</p>
+          <h2 id="delete-customer-modal-title" data-i18n="deleteCustomerTitle">고객 삭제 확인</h2>
+          <div class="delete-warning-box">
+            <strong id="delete-target-customer-info">선택한 고객</strong><span data-i18n="deleteCustomerWarning">님의 정보와 모든 입금 내역이 영구적으로 삭제되며 복구할 수 없습니다.</span>
+          </div>
+          <form id="delete-customer-confirm-form" class="form-card">
+            <input type="hidden" id="delete-customer-id" />
+            <label>
+              <span data-i18n="adminPassword">관리자 비밀번호 확인</span>
+              <input id="delete-customer-admin-pw" type="password" required data-i18n-placeholder="adminPassword" placeholder="관리자 비밀번호를 입력하세요" />
+            </label>
+            <p id="delete-customer-error" class="form-error" aria-live="polite"></p>
+            <div class="modal-action-row">
+              <button type="button" id="cancel-delete-customer-btn" class="secondary-button" data-i18n="cancel">취소</button>
+              <button type="submit" id="confirm-delete-customer-btn" class="danger-button" data-i18n="deleteCustomerConfirmBtn">고객 영구 삭제</button>
+            </div>
+          </form>
         </div>
       </div>
 
