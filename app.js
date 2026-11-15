@@ -1,7 +1,7 @@
 /******************************************************************
  HANGTHONG SOMBOON GOLD SAVINGS SYSTEM
- Version 2.9.2
- Fix: Removed deposit account info from customer view & translation dictionary
+ Version 2.9.3
+ Fix: Ensure ADMIN_PASSWORD login & add customer delete feature
 ******************************************************************/
 
 const ADMIN_PASSWORD = "jimmy0309!";
@@ -57,6 +57,11 @@ const translations = {
     confirmAdmin: "고객 비밀번호를 확인하려면 관리자 비밀번호를 다시 입력해 주세요.",
     confirmPassword: "비밀번호 확인",
     customerPassword: "고객 비밀번호",
+    deleteCustomerTitle: "고객 삭제 확인",
+    deleteCustomerWarning: "님의 정보와 모든 입금 내역이 영구적으로 삭제되며 복구할 수 없습니다.",
+    deleteCustomer: "고객 삭제",
+    deleteCustomerConfirmBtn: "고객 영구 삭제",
+    cancel: "취소",
     // Placeholders
     serialExample: "예: 1001 또는 GOLD-001",
     nameExample: "홍길동",
@@ -106,6 +111,11 @@ const translations = {
     confirmAdmin: "กรุณากรอกรหัสผ่านผู้ดูแลระบบอีกครั้งเพื่อตรวจสอบรหัสผ่านของลูกค้า",
     confirmPassword: "ยืนยันรหัสผ่าน",
     customerPassword: "รหัสผ่านลูกค้า",
+    deleteCustomerTitle: "ยืนยันการลบลูกค้า",
+    deleteCustomerWarning: " ข้อมูลและประวัติการฝากเงินทั้งหมดจะถูกลบอย่างถาวรและไม่สามารถกู้คืนได้",
+    deleteCustomer: "ลบลูกค้า",
+    deleteCustomerConfirmBtn: "ลบลูกค้าอย่างถาวร",
+    cancel: "ยกเลิก",
     // Placeholders
     serialExample: "ตัวอย่าง: 1001 หรือ GOLD-001",
     nameExample: "ชื่อ-นามสกุล",
@@ -177,6 +187,22 @@ async function saveCustomerToDB(customer) {
   const result = await res.json();
   if (!res.ok) {
     throw new Error(result.error || "고객 저장 실패");
+  }
+  return result;
+}
+
+async function deleteCustomerFromDB(customerId) {
+  if (!customerId || customerId === "undefined" || customerId === "null") {
+    throw new Error("유효하지 않은 고객 ID입니다.");
+  }
+  const res = await fetch("/.netlify/functions/delete-customer", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: customerId })
+  });
+  const result = await res.json();
+  if (!res.ok) {
+    throw new Error(result.error || "고객 삭제 실패");
   }
   return result;
 }
@@ -495,7 +521,7 @@ async function renderAdmin() {
       }).join('');
 
       list.innerHTML += `
-        <div class="customer-row" style="flex-direction:column; align-items:stretch; gap:8px;">
+        <div class="customer-row" data-customer-id="${cId}" style="flex-direction:column; align-items:stretch; gap:8px;">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <div>
               <p><strong>${customer.name}</strong></p>
@@ -507,6 +533,7 @@ async function renderAdmin() {
             <button class="password-check" data-id="${cId}">비밀번호 확인</button>
             <button class="download-pdf-admin-btn" data-id="${cId}" style="background-color:#d4af37; color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer;">PDF 다운로드</button>
             <button class="toggle-deposits-btn" data-target="deposits-${cId}">입금 내역 관리 (${info.count})</button>
+            <button type="button" class="delete-customer-btn" data-id="${cId}">${language === "th" ? "ลบลูกค้า" : "고객 삭제"}</button>
           </div>
           <div id="deposits-${cId}" class="hidden" style="margin-top:8px; border-top:1px solid #eee; padding-top:8px;">
             ${depositRows || '<p style="font-size:12px; color:#888;">입금 내역이 없습니다.</p>'}
@@ -528,6 +555,10 @@ async function renderAdmin() {
         const targetEl = document.getElementById(button.dataset.target);
         if (targetEl) targetEl.classList.toggle("hidden");
       };
+    });
+
+    document.querySelectorAll(".delete-customer-btn").forEach(button => {
+      button.onclick = () => openDeleteCustomerModal(button.dataset.id);
     });
 
     document.querySelectorAll(".edit-deposit-btn").forEach(button => {
@@ -573,6 +604,42 @@ function openPasswordModal(customerId) {
   document.getElementById("password-modal")?.classList.remove("hidden");
 }
 
+function closeDeleteCustomerModal() {
+  const modal = document.getElementById("delete-customer-modal");
+  const pwInput = document.getElementById("delete-customer-admin-pw");
+  const errEl = document.getElementById("delete-customer-error");
+  const idInput = document.getElementById("delete-customer-id");
+
+  if (idInput) idInput.value = "";
+  if (pwInput) pwInput.value = "";
+  if (errEl) errEl.textContent = "";
+  modal?.classList.add("hidden");
+}
+
+function openDeleteCustomerModal(customerId) {
+  const customer = cachedCustomers.find(c =>
+    getCustomerId(c) === String(customerId)
+  );
+
+  const idInput = document.getElementById("delete-customer-id");
+  const infoEl = document.getElementById("delete-target-customer-info");
+  const pwInput = document.getElementById("delete-customer-admin-pw");
+  const errEl = document.getElementById("delete-customer-error");
+  const modal = document.getElementById("delete-customer-modal");
+
+  if (idInput) idInput.value = customerId;
+  if (infoEl) {
+    infoEl.textContent = customer
+      ? `${customer.name} (${customer.serial || "미등록"})`
+      : "선택한 고객";
+  }
+  if (pwInput) pwInput.value = "";
+  if (errEl) errEl.textContent = "";
+
+  modal?.classList.remove("hidden");
+  setTimeout(() => pwInput?.focus(), 50);
+}
+
 /* ===========================================================
    EVENT BINDING (INIT)
 =========================================================== */
@@ -601,6 +668,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // 고객 로그인 폼
   document.getElementById("customer-login-form")?.addEventListener("submit", async e => {
     e.preventDefault();
     const phoneInput = document.getElementById("customer-phone");
@@ -614,7 +682,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!found) {
       const errEl = document.getElementById("customer-login-error");
-      if (errEl) errEl.textContent = language === "th" ? "กรุณาตรวจสอบหมายเลขโทรศัพท์หรือรหัสผ่าน" : "전화번호 또는 비밀번호를 확인해주세요.";
+      if (errEl) {
+        errEl.textContent = language === "th"
+          ? "กรุณาตรวจสอบหมายเลขโทรศัพท์หรือรหัสผ่าน"
+          : "전화번호 또는 비밀번호를 확인해주세요.";
+      }
       return;
     }
 
@@ -622,19 +694,26 @@ document.addEventListener("DOMContentLoaded", () => {
     renderCustomer();
   });
 
+  // 관리자 로그인 폼 (ADMIN_PASSWORD 검증)
   document.getElementById("admin-login-form")?.addEventListener("submit", async e => {
     e.preventDefault();
     const passInput = document.getElementById("admin-password");
+    const errEl = document.getElementById("admin-login-error");
 
-    if (passInput?.value !== ADMIN_PASSWORD) {
-      const errEl = document.getElementById("admin-login-error");
-      if (errEl) errEl.textContent = language === "th" ? "รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง" : "관리자 비밀번호가 올바르지 않습니다.";
+    if ((passInput?.value || "") !== ADMIN_PASSWORD) {
+      if (errEl) {
+        errEl.textContent = language === "th"
+          ? "รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง"
+          : "관리자 비밀번호가 올바르지 않습니다.";
+      }
       return;
     }
 
+    if (errEl) errEl.textContent = "";
     await renderAdmin();
   });
 
+  // 신규 고객 등록 폼
   document.getElementById("new-customer-form")?.addEventListener("submit", async e => {
     e.preventDefault();
     const customers = await fetchCustomersFromDB();
@@ -665,6 +744,7 @@ document.addEventListener("DOMContentLoaded", () => {
     await renderAdmin();
   });
 
+  // 신규 입금 등록 폼
   document.getElementById("new-deposit-form")?.addEventListener("submit", async e => {
     e.preventDefault();
 
@@ -709,6 +789,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // 입금 내역 수정 완료
   document.getElementById("submit-edit-deposit-btn")?.addEventListener("click", async (e) => {
     e.preventDefault();
 
@@ -748,6 +829,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // 입금 내역 삭제
   document.getElementById("delete-deposit-btn")?.addEventListener("click", async () => {
     const id = document.getElementById("edit-deposit-id").value;
     
@@ -772,13 +854,18 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("edit-deposit-modal")?.classList.add("hidden");
   });
 
+  // 고객 비밀번호 확인 모달 폼
   document.getElementById("password-confirm-form")?.addEventListener("submit", e => {
     e.preventDefault();
     const passInput = document.getElementById("password-confirm-input");
     const errEl = document.getElementById("password-confirm-error");
 
-    if (passInput?.value !== ADMIN_PASSWORD) {
-      if (errEl) errEl.textContent = language === "th" ? "รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง" : "관리자 비밀번호가 올바르지 않습니다.";
+    if ((passInput?.value || "") !== ADMIN_PASSWORD) {
+      if (errEl) {
+        errEl.textContent = language === "th"
+          ? "รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง"
+          : "관리자 비밀번호가 올바르지 않습니다.";
+      }
       return;
     }
 
@@ -792,6 +879,53 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("revealed-password")?.classList.remove("hidden");
   });
 
+  // 고객 삭제 확인 모달 이벤트
+  document.getElementById("close-delete-customer-modal")?.addEventListener("click", closeDeleteCustomerModal);
+  document.getElementById("cancel-delete-customer-btn")?.addEventListener("click", closeDeleteCustomerModal);
+  document.getElementById("delete-customer-modal")?.addEventListener("click", e => {
+    if (e.target.id === "delete-customer-modal") {
+      closeDeleteCustomerModal();
+    }
+  });
+
+  document.getElementById("delete-customer-confirm-form")?.addEventListener("submit", async e => {
+    e.preventDefault();
+    const customerId = document.getElementById("delete-customer-id")?.value;
+    const adminPw = document.getElementById("delete-customer-admin-pw")?.value;
+    const errEl = document.getElementById("delete-customer-error");
+    const submitBtn = document.getElementById("confirm-delete-customer-btn");
+
+    if ((adminPw || "") !== ADMIN_PASSWORD) {
+      if (errEl) {
+        errEl.textContent = language === "th"
+          ? "รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง"
+          : "관리자 비밀번호가 올바르지 않습니다.";
+      }
+      return;
+    }
+
+    if (!customerId) {
+      if (errEl) errEl.textContent = "삭제할 고객 정보를 찾을 수 없습니다.";
+      return;
+    }
+
+    try {
+      if (submitBtn) submitBtn.disabled = true;
+      await deleteCustomerFromDB(customerId);
+      closeDeleteCustomerModal();
+      alert(language === "th" ? "ลบข้อมูลลูกค้าเรียบร้อยแล้ว" : "고객 정보가 삭제되었습니다.");
+      await renderAdmin();
+    } catch (err) {
+      console.error("고객 삭제 실패:", err);
+      if (errEl) {
+        errEl.textContent = (language === "th" ? "ลบไม่สำเร็จ: " : "고객 삭제 실패: ") + err.message;
+      }
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+
+  // 로그아웃 버튼
   document.getElementById("customer-logout")?.addEventListener("click", () => {
     activeCustomerId = null;
     document.getElementById("customer-login-form")?.reset();
